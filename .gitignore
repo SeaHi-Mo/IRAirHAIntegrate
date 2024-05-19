@@ -1,0 +1,9 @@
+# IntelliJ/CLion
+.idea
+.vscode
+
+**/build_out
+
+# Linux
+*.swp
+*.tmp

@@ -1,0 +1,6 @@
+[submodule "software/Ai-M6x_HomeAssistant-C"]
+	path = software/Ai-M6x_HomeAssistant-C
+	url = https://gitee.com/Ai-Thinker-Open/Ai-M6x_HomeAssistant-C.git
+[submodule "sdk"]
+	path = sdk
+	url = https://gitee.com/Ai-Thinker-Open/Ai-Thinker-WB2.git
