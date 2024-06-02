@@ -13,7 +13,11 @@
 #include <at_command.h>
 #include <blog.h>
 #include "easy_flash.h"
-#include "wifi_code.h"
+
+#include "device_state.h"
+static dev_msg_t dev_msg = {
+      .device_state = DEVICE_STATE_ATCMD_WIFICFG_SET,
+};
 static int containsNChar(const char* str, char c)
 {
     int i = 1;
@@ -38,6 +42,7 @@ static void at_wifi_set(char* cmd, uint16_t cmd_len)
         return;
     }
     blog_debug("%s is ok", cmd);
+    dev_msg.device_state = DEVICE_STATE_ATCMD_WIFICFG_SET;
     //识别参数数量
     int command_cnt = containsNChar(cmd, ',');
     if (command_cnt<2) {
@@ -52,33 +57,46 @@ static void at_wifi_set(char* cmd, uint16_t cmd_len)
     for (size_t i = 1; i <command_cnt; i++)
     {
         cmd_list[i] = strtok(NULL, ",");
-        blog_debug("%d command=%s", i+1, cmd_list[i]);
+        // blog_debug("%d command=%s", i+1, cmd_list[i]);
     }
+    memset(dev_msg.wifi_info.ssid, 0, sizeof(dev_msg.wifi_info.ssid));
+    memset(dev_msg.wifi_info.password, 0, sizeof(dev_msg.wifi_info.password));
+    memset(dev_msg.wifi_info.pmk, 0, sizeof(dev_msg.wifi_info.pmk));
 
-    wifi_info_t wifi_info;
-    memset(wifi_info.ssid, 0, 64);
-    memset(wifi_info.password, 0, 64);
-    memset(wifi_info.pmk, 0, 64);
-    strncpy(wifi_info.ssid, cmd_list[0], strlen(cmd_list[0]));
-    strncpy(wifi_info.password, cmd_list[1], strlen(cmd_list[1]));
-
+    strncpy(dev_msg.wifi_info.ssid, cmd_list[0], strlen(cmd_list[0]));
+    strncpy(dev_msg.wifi_info.password, cmd_list[1], strlen(cmd_list[1]));
     switch (command_cnt) {
         case 3:
-            strncpy(wifi_info.pmk, cmd_list[2], strlen(cmd_list[2]));
+
+            strncpy(dev_msg.wifi_info.pmk, cmd_list[2], strlen(cmd_list[2]));
 
             break;
         case 4:
-            if (cmd_list[2]!=NULL) strncpy(wifi_info.pmk, cmd_list[2], strlen(cmd_list[2]));
-            wifi_info.band = atoi(cmd_list[3]);
+            if (cmd_list[2]!=NULL) strncpy(dev_msg.wifi_info.pmk, cmd_list[2], strlen(cmd_list[2]));
+            dev_msg.wifi_info.band = atoi(cmd_list[3]);
             break;
         case 5:
-            if (cmd_list[2]!=NULL) strncpy(wifi_info.pmk, cmd_list[2], strlen(cmd_list[2]));
-            if (cmd_list[3]!=NULL) wifi_info.band = atoi(cmd_list[3]);
-            wifi_info.chan_id = atoi(cmd_list[4]);
+            if (cmd_list[2]!=NULL) strncpy(dev_msg.wifi_info.pmk, cmd_list[2], strlen(cmd_list[2]));
+            if (cmd_list[3]!=NULL) dev_msg.wifi_info.band = atoi(cmd_list[3]);
+            dev_msg.wifi_info.chan_id = atoi(cmd_list[4]);
             break;
     }
-    flash_save_wifi_info(&wifi_info);
-    AT_RESPONSE(AT_OK);
+    // flash_save_wifi_info(&dev_msg.wifi_info);
+    //检查扫描列表是否有该SSID 存在
+    for (size_t i = WIFI_MGMR_SCAN_ITEMS_MAX-1; i >0; i--)
+    {
+        //识别到该设备之后，发起连接
+        if (!memcmp(wifiMgmr.scan_items[i].ssid, dev_msg.wifi_info.ssid, strlen(dev_msg.wifi_info.ssid))) {
+            dev_msg.wifi_info.band = wifiMgmr.wifi_mgmr_stat_info.chan_band;
+            dev_msg.wifi_info.chan_id = wifiMgmr.scan_items[i].channel;
+            device_state_update(false, &dev_msg);
+            AT_RESPONSE(AT_OK);
+            return;
+        }
+    }
+
+    // vPortFree(dev_msg.data);
+    AT_RESPONSE(AT_ERR);
 }
 
 static void at_wifi_check(char* cmd, uint16_t cmd_len)

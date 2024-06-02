@@ -66,8 +66,9 @@ int flash_get_wifi_info(void* value)
     memset(wifi_info->pmk, 0, 64);
     result = ef_get_bytes(flash_key[FLASH_WIFI_SSID], wifi_info->ssid, sizeof(wifi_info->ssid));
     wifi_info->ssid[result] = '\0';
-    result = ef_get_bytes(flash_key[FLASH_WIFI_PASSWORD], wifi_info->password, 32);
+    result = ef_get_bytes(flash_key[FLASH_WIFI_PASSWORD], wifi_info->password, 64);
     wifi_info->password[result] = '\0';
+    result = ef_get_bytes(flash_key[FLASH_WIFI_PMK], wifi_info->pmk, 64);
     return result;
-    return 0;
+
 }

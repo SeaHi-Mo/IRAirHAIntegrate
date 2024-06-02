@@ -20,7 +20,8 @@
 #include <wifi_mgmr_ext.h>
 #include <hal_wifi.h>
 #include "homeAssistantPort.h"
-#include "at_receive.h"
+
+#include "device_state.h"
 
 void main()
 {
@@ -29,7 +30,8 @@ void main()
     tcpip_init(NULL, NULL);
     easyflash_init();
     blog_info("[OS] proc_main_entry task...");
-    atUartInit(115200);
+    device_state_init(NULL);
+
     while (1)
     {
         vTaskDelay(pdMS_TO_TICKS(100));

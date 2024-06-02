@@ -21,7 +21,11 @@ typedef struct wifi_code_info {
     char pmk[64];
     uint8_t band;
     uint8_t chan_id;
+    char ipv4_addr[16];
+    uint32_t addr_ip;
 }wifi_info_t;
 
-
+void wifi_device_init(void);
+void quick_connect_wifi(wifi_info_t* wifi_info);
+bool wifi_device_connect_status(void);
 #endif

@@ -64,7 +64,7 @@ static void atCommandHandleFunction(void* arg)
 
         if (ring_buff_get_size(&uart_ring_buff_hd) <= 0)
         {
-            vTaskDelay(pdMS_TO_TICKS(20));
+            vTaskDelay(pdMS_TO_TICKS(50));
             continue;
         }
         uart_receive_len = ring_buff_get_size(&uart_ring_buff_hd);
@@ -90,6 +90,7 @@ static void atCommandHandleFunction(void* arg)
         }
         //处理完成，清空缓冲区内容，方便重新写入
         ring_buff_flush(&uart_ring_buff_hd);
+        // vTaskDelay(pdMS_TO_TICKS(50));
     }
 }
 

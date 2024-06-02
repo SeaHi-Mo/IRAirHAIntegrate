@@ -17,8 +17,8 @@
 #include <stdbool.h>
 
 
-#define AT_OK "OK\r\n"
-#define AT_ERR "ERR\r\n"
+#define AT_OK "\r\nATCMD:OK\r\n"
+#define AT_ERR "\r\nATCMD:ERR\r\n"
 
 typedef void (*cmd_callback_t)(char* cmd, uint16_t cmd_len);
 
