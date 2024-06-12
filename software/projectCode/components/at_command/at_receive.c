@@ -12,7 +12,7 @@
 #include <task.h>
 #include <hosal_uart.h>
 #include <blog.h>
-#include <hosal_uart.h>
+
 #include "at_receive.h"
 #include "at_ringbuff.h"
 #include "at_command.h"

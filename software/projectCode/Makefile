@@ -32,6 +32,8 @@ INCLUDE_COMPONENTS += $(PROJECT_NAME)
 
 INCLUDE_COMPONENTS += axk_common tcp_transport http-parser axk_tls axk_mqtt cjson 
 INCLUDE_COMPONENTS += components
+
 EXTRA_COMPONENT_DIRS += $(PROJECT_PATH)/components
 
 include $(BL60X_SDK_PATH)/make_scripts_riscv/project.mk
+

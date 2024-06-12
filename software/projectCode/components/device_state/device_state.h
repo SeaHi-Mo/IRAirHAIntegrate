@@ -14,10 +14,10 @@
 #include "at_receive.h"
 #include "wifi_code.h"
 #include "easy_flash.h"
-#include "wifi_mgmr.h"
+#include "../../../../sdk/components/network/wifi_manager/bl60x_wifi_driver/wifi_mgmr.h"
+
 #include "bl_sys.h"
 #define DEVICE_QUEUE_HANDLE_SIZE 1024
-
 typedef enum {
     DEVICE_STATE_NONE = -1,
     DEVICE_SATE_SYSYTEM_INIT,
