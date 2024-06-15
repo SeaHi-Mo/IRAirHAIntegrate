@@ -11,10 +11,30 @@
 #ifndef IR_DEVICE_H
 #define IR_DEVICE_H
 #include "device_state.h"
-
+#define IR_UART_DATA_SIZE_MAX 256
 #define IR_DEVICE_DATA_HEAD 0x68
 #define IR_DEVICE_DATA_END 0x16
 #define IR_DEVICE_UART_ADDR 0x00 //模块默认地址
+
+
+#define IR_CMD_SET_BUAD_RATE_BYTE 0x03
+#define IR_CMD_GET_BUAD_RATE_BYTE 0x04
+#define IR_CMD_SET_ADDR_BYTE 0x05
+#define IR_CMD_GET_ADDR_BYTE 0x06
+#define IR_CMD_REBOOT_BYTE 0x07
+#define IR_CMD_RESET_BYTE 0x08
+#define IR_CMD_GOTO_IN_LEARN_BYTE 0x10
+#define IR_CMD_EXIT_IN_LEARN_BYTE 0x11
+#define IR_CMD_SEND_IN_CODE_BYTE 0x12
+#define IR_CMD_SET_AUTO_SEND_BYTE 0x13
+#define IR_CMD_GET_AUTO_SEND_BYTE 0x14
+#define IR_CMD_SET_AUTO_SEND_TIMER_BYTE 0x15
+#define IR_CMD_GET_AUTO_SEND_TIMER_BYTE 0x16
+#define IR_CMD_WRITE_FLASH_CODE_BYTE 0x17
+#define IR_CMD_READ_FLASH_CODE_BYTE 0x18
+#define IR_CMD_GOTO_LEARN_CODE_BYTE 0x20
+#define IR_CMD_EXIT_LEARN_CODE_BYTE 0x21
+#define IR_CMD_SEND_LEARN_CODE_BYTE 0x22
 
 typedef enum {
     IR_DEVICE_CMD_NONE = -1,
@@ -49,9 +69,11 @@ typedef enum {
 }ir_dev_cmd_t;
 
 typedef struct dev_cmd_list {
-    char cmd_data[10];
+    char cmd_data[IR_UART_DATA_SIZE_MAX];
     uint8_t cmd_date_len;
 }dev_cmd_t;
 
 void ir_dvice_init(void);
+void ir_device_send_cmd(ir_dev_cmd_t ir_dev_cmd);
+
 #endif

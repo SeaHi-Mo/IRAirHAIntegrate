@@ -19,6 +19,7 @@
 #include <lwip/tcpip.h>
 #include <wifi_mgmr_ext.h>
 #include <hal_wifi.h>
+#include "bl_gpio.h"
 #include "homeAssistantPort.h"
 
 #include "device_state.h"
@@ -28,6 +29,7 @@ void main()
 
     blog_info("[OS] Starting TCP/IP Stack...");
     tcpip_init(NULL, NULL);
+
     easyflash_init();
     blog_info("[OS] proc_main_entry task...");
     device_state_init(NULL);

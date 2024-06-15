@@ -32,6 +32,7 @@ static void device_state_task(void* arg)
             {
                 blog_info("<<<<<<<<<<<<<<<  DEVICE_SATE_SYSYTEM_INIT");
                 //系统启动之后开始读取flash内部信息
+                device_led_update_state(LED_STATE_BLINK_0_5);
                 //1:读取WiFi信息
                 flash_get_wifi_info(&dev_msg->wifi_info);
                 if (strlen(dev_msg->wifi_info.ssid)!=0) {
@@ -55,6 +56,7 @@ static void device_state_task(void* arg)
                 blog_info("<<<<<<<<<<<<<<<  DEVICE_STATE_WIFI_CONNECTED");
                 //读取连的AP信息
                 blog_info("ssid =%s,password=%s addr=%s", dev_msg->wifi_info.ssid, dev_msg->wifi_info.password, dev_msg->wifi_info.ipv4_addr);
+                device_led_update_state(LED_STATE_BLINK_2_0_S_0_5);
                 //如果连接信息保存的不一致，则重新保存
                 wifi_info_t flash_wifi_info = { 0 };
                 flash_get_wifi_info(&flash_wifi_info);
@@ -63,7 +65,11 @@ static void device_state_task(void* arg)
                     //重新保存新的WiFi信息
                     flash_save_wifi_info(&dev_msg->wifi_info);
                 }
-
+                ir_device_send_cmd(IR_DEVICE_CMD_SET_BAUD_RATE_115200);
+                vTaskDelay(pdMS_TO_TICKS(100));
+                ir_device_send_cmd(IR_DEVICE_CMD_GET_BAUD_RATE);
+                sht3x_data_t* sht30_data = sht30_get_data();
+                blog_info(" temp =%.2fC humi=%d %%", sht30_data->temperature, sht30_data->humidity);
             }
             break;
             case DEVICE_STATE_ATCMD_WIFICFG_SET:
@@ -97,10 +103,13 @@ static void device_state_task(void* arg)
 void device_state_init(void* arg)
 {
     device_queue_handle = xQueueCreate(2, sizeof(dev_msg_t));
-    atUartInit(115200);
-    wifi_device_init();
     BaseType_t err = xTaskCreate(device_state_task, "device_state_task", DEVICE_QUEUE_HANDLE_SIZE*2, NULL, 10, NULL);
-
+    atUartInit(115200);
+    ir_dvice_init();
+    wifi_device_init();
+    device_led_init();
+    device_button_init();
+    sht30_device_init(SHT30_SINGLE_SAMPLE_CLOK_HIGH);
     if (err == pdPASS) {
         blog_info("\"device_state_task\" is create OK");
     }

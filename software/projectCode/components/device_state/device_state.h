@@ -15,8 +15,12 @@
 #include "wifi_code.h"
 #include "easy_flash.h"
 #include "../../../../sdk/components/network/wifi_manager/bl60x_wifi_driver/wifi_mgmr.h"
-
 #include "bl_sys.h"
+#include "ir_device.h"
+#include "led.h"
+#include "button.h"
+#include "sht30_dev.h"
+
 #define DEVICE_QUEUE_HANDLE_SIZE 1024
 typedef enum {
     DEVICE_STATE_NONE = -1,
