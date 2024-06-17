@@ -11,38 +11,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <hosal_uart.h>
 #include "blog.h"
 #include "ir_device.h"
-#include "at_ringbuff.h"
+#include "bl_uart.h"
 #include <bl_gpio.h>
-
-
-static int hosal_uart_callback(void* p_arg);
-
+#define IR_UART_NUM 1
 
 static bool uart_get_status = false;
-static ring_buff_t ir_ring_buff_hd = { 0 };
 static dev_cmd_t ir_uart_read_data;
 static dev_cmd_t ir_cmd;
-
-static hosal_uart_dev_t ir_uart_dev = {
-         .config = {
-             .uart_id = 1,
-             .tx_pin = 4, // TXD GPIO
-             .rx_pin = 3, // RXD GPIO
-             .cts_pin = 255,
-             .rts_pin = 255,
-             .data_width = HOSAL_DATA_WIDTH_8BIT,
-             .parity = HOSAL_NO_PARITY,
-             .stop_bits = HOSAL_STOP_BITS_1,
-             .mode = HOSAL_UART_MODE_INT,
-             .baud_rate = 115200,
-         },
-          .rx_cb = hosal_uart_callback,
-          .p_rxarg = &ir_uart_dev,
-          .port = 1,
-};
 
 static dev_cmd_t* create_ir_cmd(ir_dev_cmd_t ir_dev_cmd)
 {
@@ -141,39 +118,45 @@ static dev_cmd_t* create_ir_cmd(ir_dev_cmd_t ir_dev_cmd)
 }
 
 
-static int hosal_uart_callback(void* p_arg)
+static void hosal_uart_callback(void* p_arg)
 {
-    hosal_uart_dev_t* uart_dev = (hosal_uart_dev_t*)p_arg;
-    static uint32_t uart_receive_len = 0;
-    static uint8_t uart_data[IR_UART_DATA_SIZE_MAX];
-    memset(uart_data, 0, IR_UART_DATA_SIZE_MAX);
-    uart_receive_len = hosal_uart_receive(uart_dev, uart_data, IR_UART_DATA_SIZE_MAX);
+    uint8_t data;
 
-    for (size_t i = 0; i < uart_receive_len; i++)
-    {
-        if (uart_data[i]==IR_DEVICE_DATA_END) {
-            ir_uart_read_data.cmd_data[ir_uart_read_data.cmd_date_len++] = uart_data[i];
+    int ch;
+
+    while ((ch = bl_uart_data_recv(IR_UART_NUM)) >= 0) {
+        data = (uint8_t)ch;
+        if (data ==IR_DEVICE_DATA_END) {
+            ir_uart_read_data.cmd_data[ir_uart_read_data.cmd_date_len++] = data;
             uart_get_status = true;
         }
-        else if (uart_data[i]==IR_DEVICE_DATA_HEAD) {
+        else if (data ==IR_DEVICE_DATA_HEAD) {
 
             ir_uart_read_data.cmd_date_len = 0;
             memset(ir_uart_read_data.cmd_data, 0, IR_UART_DATA_SIZE_MAX);
 
-            ir_uart_read_data.cmd_data[ir_uart_read_data.cmd_date_len] = uart_data[i];
+            ir_uart_read_data.cmd_data[ir_uart_read_data.cmd_date_len] = data;
             ir_uart_read_data.cmd_date_len++;
         }
         else {
-            ir_uart_read_data.cmd_data[ir_uart_read_data.cmd_date_len] = uart_data[i];
+            ir_uart_read_data.cmd_data[ir_uart_read_data.cmd_date_len] = data;
             ir_uart_read_data.cmd_date_len++;
         }
+    }
+}
+
+
+static int HAL_at_uart_send(char* buf, uint16_t size)
+{
+    uint16_t cnt = 0;
+
+    while (cnt < size) {
+        bl_uart_data_send(IR_UART_NUM, ((uint8_t*)buf)[cnt]);
+        cnt++;
     }
 
     return 0;
 }
-
-
-
 static void ir_data_ring_task(void* arg)
 {
     uint32_t uart_receive_len = 0;
@@ -195,11 +178,28 @@ static void ir_data_ring_task(void* arg)
     }
 }
 
+static void __uart_tx_irq(void* p_arg)
+{
+    bl_uart_int_tx_disable(IR_UART_NUM);
+}
 
 void ir_dvice_init(void)
 {
-    hosal_uart_init(&ir_uart_dev);
 
+    int dataBits = UART_DATABITS_8;
+    int stopBits = UART_STOPBITS_1;
+    int parity = UART_PARITY_NONE;
+    int cts_pin = 0xff;
+    int rts_pin = 0xff;
+
+
+    // bl_uart_init_ex(IR_UART_NUM, 4, 3, cts_pin, rts_pin, 115200,
+    //                 dataBits, stopBits, parity);
+    bl_uart_init(IR_UART_NUM, 4, 3, cts_pin, rts_pin, 115200);
+    bl_uart_int_tx_notify_register(IR_UART_NUM, __uart_tx_irq, NULL);
+    bl_uart_int_rx_notify_register(IR_UART_NUM, hosal_uart_callback, NULL);
+    bl_uart_int_enable(IR_UART_NUM);
+    bl_uart_int_tx_enable(IR_UART_NUM);
 
     xTaskCreate(ir_data_ring_task, "ir task", 1024, NULL, 8, NULL);
 
@@ -210,5 +210,7 @@ void ir_device_send_cmd(ir_dev_cmd_t ir_dev_cmd)
 {
     dev_cmd_t* ir_cmd_data = create_ir_cmd(ir_dev_cmd);
     blog_debug("cmdlen=%d =%02x %02x %02x %02x %02x %02x %02x %02x", ir_cmd_data->cmd_date_len, ir_cmd_data->cmd_data[0], ir_cmd_data->cmd_data[1], ir_cmd_data->cmd_data[2], ir_cmd_data->cmd_data[3], ir_cmd_data->cmd_data[4], ir_cmd_data->cmd_data[5], ir_cmd_data->cmd_data[6], ir_cmd_data->cmd_data[7]);
-    hosal_uart_send(&ir_uart_dev, ir_cmd_data->cmd_data, ir_cmd_data->cmd_date_len);
+    // hosal_uart_send(&ir_uart_dev, ir_cmd_data->cmd_data, ir_cmd_data->cmd_date_len);
+    HAL_at_uart_send(ir_cmd_data->cmd_data, ir_cmd_data->cmd_date_len);
+
 }

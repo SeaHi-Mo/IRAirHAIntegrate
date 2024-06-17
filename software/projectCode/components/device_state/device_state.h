@@ -21,7 +21,13 @@
 #include "button.h"
 #include "sht30_dev.h"
 
+#include "homeAssistantPort.h"
+#include "dev_ha.h"
+
+#define DEVICE_HW_SERSION "V1.0.0"
+
 #define DEVICE_QUEUE_HANDLE_SIZE 1024
+
 typedef enum {
     DEVICE_STATE_NONE = -1,
     DEVICE_SATE_SYSYTEM_INIT,
@@ -37,7 +43,7 @@ typedef enum {
 typedef struct device_state_handle {
     device_state_t device_state;
     wifi_info_t wifi_info;
-
+    homeAssisatnt_device_t ha_dev;
 }dev_msg_t;
 
 void device_state_init(void* arg);

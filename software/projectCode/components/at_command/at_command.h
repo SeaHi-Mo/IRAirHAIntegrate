@@ -12,7 +12,7 @@
 #define AT_COMMAND_H
 
 #include "at_receive.h"
-#include "at_ringbuff.h"
+
 
 extern at_cmd_info_t at_cmd_list[];
 #endif

@@ -84,6 +84,7 @@ static  void vTimerCallback_sht30(TimerHandle_t xTimer)
         sht30_data.humidity = (int)humi;
 
     }
+    blog_debug("temperature: %.2f humidity: %d\r\n", sht30_data.temperature, sht30_data.humidity);
 }
 
 void sht30_device_init(sht03_sample_t sample_config)

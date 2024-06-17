@@ -23,6 +23,8 @@
 
 static dev_msg_t dev_msg = { 0 };
 static bool wifi_status = false;
+
+
 static wifi_conf_t conf =
 {
     .country_code = "CN",
@@ -51,6 +53,7 @@ void quick_connect_wifi(wifi_info_t* wifi_info)
     );
     memcpy(&dev_msg.wifi_info, wifi_info, sizeof(wifi_info_t));
     wifi_interface = wifi_mgmr_sta_enable();
+    wifi_mgmr_sta_mac_get((uint8_t*)wifi_info->mac);
     wifi_mgmr_sta_connect_mid(wifi_interface, wifi_info->ssid, NULL, wifi_info->pmk, NULL, wifi_info->band, wifi_info->chan_id, 1, flags);
 }
 /**
@@ -84,7 +87,7 @@ static void event_cb_wifi_event(input_event_t* event, void* private_data)
         case CODE_WIFI_ON_SCAN_DONE:
         {
             blog_info("[APP] [EVT] SCAN Done %lld", aos_now_ms());
-            wifi_mgmr_cli_scanlist();
+            // wifi_mgmr_cli_scanlist();
 
             dev_msg.device_state = DEVICE_SATE_SYSYTEM_INIT;
             device_state_update(true, &dev_msg); //WiFi 准备OK,等待连接

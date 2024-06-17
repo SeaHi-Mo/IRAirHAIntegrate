@@ -17,7 +17,7 @@
 #include <blog.h>
 #include <device_state.h>
 
-
+static homeAssisatnt_device_t ha_dev;
 static QueueHandle_t device_queue_handle;
 
 static void device_state_task(void* arg)
@@ -35,6 +35,7 @@ static void device_state_task(void* arg)
                 device_led_update_state(LED_STATE_BLINK_0_5);
                 //1:读取WiFi信息
                 flash_get_wifi_info(&dev_msg->wifi_info);
+
                 if (strlen(dev_msg->wifi_info.ssid)!=0) {
                     blog_info("get wifi info ssid=%s password=%s", dev_msg->wifi_info.ssid, dev_msg->wifi_info.password);
                     //在扫描的设备当中查找是否有该ssid
@@ -49,6 +50,12 @@ static void device_state_task(void* arg)
                         }
                     }
                 }
+                //读取HA MQTT信息
+                if (flash_get_mqtt_info(&ha_dev.mqtt_info)) {
+                    if (flash_get_ha_device_msg(&ha_dev)) {
+                        device_homeAssistant_init(&ha_dev);
+                    }
+                }
             }
             break;
             case DEVICE_STATE_WIFI_CONNECTED:
@@ -57,15 +64,18 @@ static void device_state_task(void* arg)
                 //读取连的AP信息
                 blog_info("ssid =%s,password=%s addr=%s", dev_msg->wifi_info.ssid, dev_msg->wifi_info.password, dev_msg->wifi_info.ipv4_addr);
                 device_led_update_state(LED_STATE_BLINK_2_0_S_0_5);
+                //启动HA 连接
+                homeAssistant_device_start();
                 //如果连接信息保存的不一致，则重新保存
+
                 wifi_info_t flash_wifi_info = { 0 };
                 flash_get_wifi_info(&flash_wifi_info);
-                if (memcmp(flash_wifi_info.ssid, dev_msg->wifi_info.ssid, strlen(dev_msg->wifi_info.ssid)))
+                if (memcmp(flash_wifi_info.ssid, dev_msg->wifi_info.ssid, strlen(dev_msg->wifi_info.ssid))|| memcmp(flash_wifi_info.password, dev_msg->wifi_info.password, strlen(dev_msg->wifi_info.password)))
                 {
                     //重新保存新的WiFi信息
                     flash_save_wifi_info(&dev_msg->wifi_info);
                 }
-                ir_device_send_cmd(IR_DEVICE_CMD_SET_BAUD_RATE_115200);
+                // ir_device_send_cmd(IR_DEVICE_CMD_SET_BAUD_RATE_115200);
                 vTaskDelay(pdMS_TO_TICKS(100));
                 ir_device_send_cmd(IR_DEVICE_CMD_GET_BAUD_RATE);
                 sht3x_data_t* sht30_data = sht30_get_data();
@@ -109,7 +119,7 @@ void device_state_init(void* arg)
     wifi_device_init();
     device_led_init();
     device_button_init();
-    sht30_device_init(SHT30_SINGLE_SAMPLE_CLOK_HIGH);
+    sht30_device_init(SHT30_SINGLE_SAMPLE_NOCLOK_LOW);
     if (err == pdPASS) {
         blog_info("\"device_state_task\" is create OK");
     }

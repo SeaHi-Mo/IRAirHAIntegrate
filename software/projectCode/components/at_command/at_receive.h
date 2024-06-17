@@ -24,10 +24,10 @@ typedef void (*cmd_callback_t)(char* cmd, uint16_t cmd_len);
 
 typedef struct
 {
-    char* cmd;
-    cmd_callback_t set_func;
-    cmd_callback_t check_func;
-    cmd_callback_t  test_func;
+    const char* cmd;
+    const  cmd_callback_t set_func;
+    const cmd_callback_t check_func;
+    const cmd_callback_t  test_func;
 } at_cmd_info_t;
 
 

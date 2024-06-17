@@ -17,8 +17,20 @@ typedef enum {
     FLASH_WIFI_PMK,
     FLASH_WIFI_BAND,
     FLASH_WIFI_CHAN_ID,
+    FLASH_MQTT_HOST,
+    FLASH_MQTT_PORT,
+    FLASH_MQTT_CLIENT_ID,
+    FLASH_MQTT_USERNAME,
+    FLASH_MQTT_PASSWORD,
+    FLASH_HA_DEV_NAME,
+    FLASH_HA_MANUFACTURER
 }flash_key_t;
 
 bool flash_save_wifi_info(void* value);
 int flash_get_wifi_info(void* value);
+bool flash_save_mqtt_info(void* value);
+int flash_get_mqtt_info(void* value);
+bool flash_save_ha_device_msg(void* value);
+int flash_get_ha_device_msg(void* value);
+bool ef_del_key(const char* key);
 #endif

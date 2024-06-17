@@ -12,95 +12,106 @@
 #include <task.h>
 #include <hosal_uart.h>
 #include <blog.h>
-
+#include "bl_uart.h"
 #include "at_receive.h"
-#include "at_ringbuff.h"
 #include "at_command.h"
 
 #define AT_CMD_HEADER "AT"
 #define AT_CMD_DATA_SIZE_MAX 256
-
+#define AT_UART_NUM 0
 static TaskHandle_t atFunction_task;
 static cmd_callback_t AT_cmd_info_tab[];
-static ring_buff_t uart_ring_buff_hd = { 0 };
-static uint8_t uart_data[AT_CMD_DATA_SIZE_MAX];
-static uint8_t uart_ring_buffer[AT_CMD_DATA_SIZE_MAX];
 
-static int hosal_uart_callback(void* p_arg);
-static hosal_uart_dev_t uart_dev = {
-         .config = {
-             .uart_id = 0,
-             .tx_pin = 16, // TXD GPIO
-             .rx_pin = 7,  // RXD GPIO
-             .cts_pin = 255,
-             .rts_pin = 255,
-             .data_width = HOSAL_DATA_WIDTH_8BIT,
-             .parity = HOSAL_NO_PARITY,
-             .stop_bits = HOSAL_STOP_BITS_1,
-             .mode = HOSAL_UART_MODE_INT,
-         },
-         .rx_cb = hosal_uart_callback,
-         .p_rxarg = &uart_dev,
-};
+static uint8_t at_data[AT_CMD_DATA_SIZE_MAX];
+static uint16_t at_data_size = 0;
+static void hosal_uart_callback(void* p_arg);
 
 void atCommandExecute(char* buff);
 
-static int hosal_uart_callback(void* p_arg)
+static void hosal_uart_callback(void* p_arg)
 {
-    hosal_uart_dev_t* uart_dev = (hosal_uart_dev_t*)p_arg;
-    static uint32_t uart_receive_len = 0;
-    memset(uart_data, 0, AT_CMD_DATA_SIZE_MAX);
-    int len = hosal_uart_receive(uart_dev, uart_data, AT_CMD_DATA_SIZE_MAX);
-    ring_buff_push_data(&uart_ring_buff_hd, (uint8_t*)uart_data, strlen((char*)uart_data));
 
+
+    uint8_t data;
+
+    int ch;
+
+    while ((ch = bl_uart_data_recv(AT_UART_NUM)) >= 0) {
+        data = (uint8_t)ch;
+        at_data[at_data_size] = data;
+        at_data_size++;
+
+    }
+
+
+}
+
+int HAL_at_uart_send(char* buf, uint16_t size)
+{
+    uint16_t cnt = 0;
+
+    while (cnt < size) {
+        bl_uart_data_send(AT_UART_NUM, ((uint8_t*)buf)[cnt]);
+        cnt++;
+    }
     return 0;
+}
+
+static void __uart_tx_irq(void* p_arg)
+{
+    bl_uart_int_tx_disable(AT_UART_NUM);
 }
 
 static void atCommandHandleFunction(void* arg)
 {
-    uint32_t uart_receive_len = 0;
     while (1)
     {
 
-        if (ring_buff_get_size(&uart_ring_buff_hd) <= 0)
+        if (at_data_size<=3)
         {
             vTaskDelay(pdMS_TO_TICKS(50));
             continue;
         }
-        uart_receive_len = ring_buff_get_size(&uart_ring_buff_hd);
         //读取缓冲区内容
-        ring_buff_pop_data(&uart_ring_buff_hd, uart_ring_buffer, ring_buff_get_size(&uart_ring_buff_hd)+1);
-
-        if (uart_receive_len >= AT_CMD_DATA_SIZE_MAX)
+        char* uart_ring_buffer = pvPortMalloc(AT_CMD_DATA_SIZE_MAX);
+        memset(uart_ring_buffer, 0, AT_CMD_DATA_SIZE_MAX);
+        memcpy(uart_ring_buffer, at_data, at_data_size);
+        // blog_debug("%s", uart_ring_buffer);
+        if ((at_data_size >= 4) && ('\r' == uart_ring_buffer[at_data_size-2]) && ('\n' == uart_ring_buffer[at_data_size-1]))
         {
-            ring_buff_flush(&uart_ring_buff_hd);
-            uart_receive_len = 0;
-            memset(uart_ring_buffer, 0, AT_CMD_DATA_SIZE_MAX);
-            continue;
-        }
 
-        if ((uart_receive_len >= 4) && ('\r' == uart_ring_buffer[uart_receive_len-2]) && ('\n' == uart_ring_buffer[uart_receive_len-1]))
-        {
-            // blog_info("rev:%s ", uart_ring_buffer);
-            // blog_info("cmdlen:%d ", uart_receive_len);
-            uart_ring_buffer[uart_receive_len-2] = '\0';
+            uart_ring_buffer[at_data_size-2] = '\0';
             atCommandExecute((char*)uart_ring_buffer);
-            uart_receive_len = 0;
-            memset(uart_ring_buffer, 0, AT_CMD_DATA_SIZE_MAX);
+            memset(at_data, 0, AT_CMD_DATA_SIZE_MAX);
+            at_data_size = 0;
+            vTaskDelay(pdMS_TO_TICKS(50));
+            blog_debug("HeapSize=%d ", xPortGetFreeHeapSize());
         }
+        else AT_RESPONSE(AT_ERR);
         //处理完成，清空缓冲区内容，方便重新写入
-        ring_buff_flush(&uart_ring_buff_hd);
-        // vTaskDelay(pdMS_TO_TICKS(50));
+        vTaskDelay(pdMS_TO_TICKS(50));
+        at_data_size = 0;
+        memset(uart_ring_buffer, 0, AT_CMD_DATA_SIZE_MAX);
+        vPortFree(uart_ring_buffer);
     }
 }
 
 void atUartInit(uint32_t baud_rate)
 {
+    // uart_dev.config.baud_rate = baud_rate;
+    int dataBits = UART_DATABITS_8;
+    int stopBits = UART_STOPBITS_1;
+    int parity = UART_PARITY_NONE;
+    int cts_pin = 0xff;
+    int rts_pin = 0xff;
 
-
-    uart_dev.config.baud_rate = baud_rate;
-    hosal_uart_init(&uart_dev);
-    ring_buff_init(&uart_ring_buff_hd, (char*)uart_ring_buffer, AT_CMD_DATA_SIZE_MAX);
+    // hosal_uart_init(&uart_dev);
+    bl_uart_init_ex(AT_UART_NUM, 16, 7, cts_pin, rts_pin, baud_rate,
+                   dataBits, stopBits, parity);
+    bl_uart_int_tx_notify_register(AT_UART_NUM, __uart_tx_irq, NULL);
+    bl_uart_int_rx_notify_register(AT_UART_NUM, hosal_uart_callback, NULL);
+    bl_uart_int_enable(AT_UART_NUM);
+    bl_uart_int_tx_disable(AT_UART_NUM);
     xTaskCreate(atCommandHandleFunction, "AT task", 1024, NULL, 14, &atFunction_task);
 }
 
@@ -121,14 +132,14 @@ void atCommandExecute(char* buff)
     char* cmdPoint = NULL;
     uint16_t cmd_data_len = 0;
     uint16_t cmd_len = 0;
-    uint16_t len = 0;
     bool cmdStatus = false;
-    if (memcmp(buff, AT_CMD_HEADER, strlen(AT_CMD_HEADER)) == 0)
+    if (memcmp(buff, AT_CMD_HEADER, 2) == 0)
     {
         cmdPoint = strstr(buff, AT_CMD_HEADER);
-        if (cmdPoint)
+        if (cmdPoint!=NULL)
         {
             cmd_data_len = strlen(cmdPoint);
+            // blog_info("cmdPoint=%s", cmdPoint);
             for (uint16_t num = 0; at_cmd_list[num].cmd != NULL; num++)
             {
                 cmd_len = strlen(at_cmd_list[num].cmd);
@@ -136,19 +147,20 @@ void atCommandExecute(char* buff)
 
                     if (containsChar(cmdPoint, '=')) {//识别为设置指令
                         if (at_cmd_list[num].set_func!=NULL)
-                            at_cmd_list[num].set_func((cmdPoint + cmd_len+1), len);
+                            at_cmd_list[num].set_func((cmdPoint + cmd_len+1), cmd_len);
                     }
                     else if (containsChar(cmdPoint, '?')) {//识别为设置查询指令
                         if (at_cmd_list[num].check_func!=NULL)
-                            at_cmd_list[num].check_func((cmdPoint + cmd_len+1), len);
+                            at_cmd_list[num].check_func((cmdPoint + cmd_len+1), cmd_len);
                     }
                     else if (strlen(cmdPoint)==strlen(at_cmd_list[num].cmd)) {//识别为测试指令
                         if (at_cmd_list[num].test_func!=NULL)
-                            at_cmd_list[num].test_func(cmdPoint, len);
+                            at_cmd_list[num].test_func(cmdPoint, cmd_len);
                     }
                     cmdStatus = true;
                     return;
                 }
+                // vTaskDelay(pdMS_TO_TICKS(2));
             }
             if (!cmdStatus)
             {
@@ -177,7 +189,9 @@ void at_cmd_response(char* cmd)
         return;
     }
 
-    hosal_uart_send(&uart_dev, cmd, strlen(cmd));
+    // hosal_uart_send(&uart_dev, cmd, strlen(cmd));
+    HAL_at_uart_send(cmd, strlen(cmd));
+    // printf("%.*s", strlen(cmd), cmd);
 }
 
 
