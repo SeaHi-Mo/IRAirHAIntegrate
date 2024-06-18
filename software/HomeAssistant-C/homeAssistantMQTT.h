@@ -31,7 +31,10 @@ typedef enum {
     HA_EVENT_MQTT_COMMAND_LIGHT_RGB_UPDATE,//light 灯的RGB 颜色下发事件
     HA_EVENT_MQTT_COMMAND_LIGHT_BRIGHTNESS,//light 灯的亮度数据下发事件
     HA_EVENT_MQTT_COMMAND_TEXT_VALUE,  //服务器下发text内容事件
-    HA_EVENT_MQTT_COMMAND_CLIMATE_HVAC_POWER,
+
+    HA_EVENT_MQTT_COMMAND_CLIMATE_HVAC_POWER, //服务器下发的空调开关事件
+    HA_EVENT_MQTT_COMMAND_CLIMATE_HVAC_MODES,
+
     HA_EVENT_MQTT_ERROR,
 }ha_event_t;
 
@@ -462,6 +465,16 @@ typedef struct {
 
 #if CONFIG_ENTITY_ENABLE_CLIMATE_HVAC
 
+typedef enum {
+    AC_MODES_AUTO = 0,
+    // AC_MODES_OFF,
+    AC_MODES_COOL,
+    AC_MODES_HEAT,
+    AC_MODES_DRY,
+    AC_MODES_FAN_ONLY,
+    AC_MODES_OTHER,
+
+}ac_modes_t;
 
 typedef  struct homeAssisatnt_entity_climateHVAC {
     char* action_template;
@@ -502,6 +515,7 @@ typedef  struct homeAssisatnt_entity_climateHVAC {
     char* mode_state_template;
     char* mode_state_topic;
     char* modes[6];
+    ac_modes_t modes_type;
 
     char* name;
     char* object_id;

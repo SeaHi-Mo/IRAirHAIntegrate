@@ -14,6 +14,7 @@
 #include "blog.h"
 #include "dev_ha.h"
 
+static dev_msg_t dev_msg;
 void ha_event_cb(ha_event_t event, homeAssisatnt_device_t* dev)
 {
     switch (event)
@@ -21,25 +22,34 @@ void ha_event_cb(ha_event_t event, homeAssisatnt_device_t* dev)
         /*  连接服务器事件  */
         case HA_EVENT_MQTT_CONNECED:
             HA_LOG_I("<<<<<<<<<<  HA_EVENT_MQTT_CONNECED\r\n");
-            static ha_sw_entity_t sw1 = {
-            .name = "开关",
-            .unique_id = "switch1"
-            };
-            homeAssistant_device_add_entity(CONFIG_HA_ENTITY_SWITCH, &sw1);
-
             static ha_climateHVAC_t AC1 = {
                 .name = "美的空调",
                 .unique_id = "AC_1",
             };
             homeAssistant_device_add_entity(CONFIG_HA_ENTITY_CLIMATE_HVAC, &AC1);
             homeAssistant_device_send_status(HOMEASSISTANT_STATUS_ONLINE);
+            dev_msg.device_state = DEVICE_STATE_HOMEASSISTANT_CONNECT;
+            // homeAssistant_device_send_entity_state(CONFIG_HA_ENTITY_CLIMATE_HVAC, &AC1, 0);
+            device_state_update(false, &dev_msg);
+
             break;
             /*  服务器断开事件  */
         case HA_EVENT_MQTT_DISCONNECT:
             HA_LOG_I("<<<<<<<<<<  HA_EVENT_MQTT_DISCONNECT\r\n");
+            break;
+        case HA_EVENT_MQTT_COMMAND_CLIMATE_HVAC_POWER:
+            HA_LOG_I("<<<<<<<<<< HA_EVENT_MQTT_COMMAND_CLIMATE_HVAC_POWER=%s\r\n", dev->entity_climateHVAC->command_climateHVAC->power_state?"ON":"OFF");
+            homeAssistant_device_send_entity_state(CONFIG_HA_ENTITY_CLIMATE_HVAC, dev->entity_climateHVAC->command_climateHVAC, dev->entity_climateHVAC->command_climateHVAC->power_state);
+            break;
+        case HA_EVENT_MQTT_COMMAND_CLIMATE_HVAC_MODES:
+            HA_LOG_I("<<<<<<<<<< HA_EVENT_MQTT_COMMAND_CLIMATE_HVAC_MODES\r\n");
+            homeAssistant_device_send_entity_state(CONFIG_HA_ENTITY_CLIMATE_HVAC, dev->entity_climateHVAC->command_climateHVAC, 1);
+
+            break;
         default:
             break;
     }
+    event = HA_EVENT_NONE;
 }
 
 void device_homeAssistant_init(homeAssisatnt_device_t* dev_ha)

@@ -125,7 +125,7 @@
 #define CONFIG_ENTITY_ENABLE_SIREN 0     
 
 //开关实体   默认开启        
-#define CONFIG_ENTITY_ENABLE_SWITCH 1
+#define CONFIG_ENTITY_ENABLE_SWITCH 0
 
 //更新实体   默认不开启，需要使用就置 1                   
 #define CONFIG_ENTITY_ENABLE_UPDATE  0     

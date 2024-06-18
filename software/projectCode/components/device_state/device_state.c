@@ -104,6 +104,10 @@ static void device_state_task(void* arg)
                     quick_connect_wifi(&dev_msg->wifi_info);
                 }
                 break;
+            case DEVICE_STATE_HOMEASSISTANT_CONNECT:
+                blog_info("<<<<<<<<<<<<<<< DEVICE_STATE_HOMEASSISTANT_CONNECT");
+                break;
+
             default:
                 break;
         }
