@@ -127,7 +127,7 @@ static axk_err_t event_cb(axk_mqtt_event_handle_t event)
             axk_mqtt_client_subscribe(client, CONFIG_HA_STATUS_TOPIC, 0);
             break;
         case MQTT_EVENT_DISCONNECTED:
-            HA_LOG_I("MQTT_EVENT_DISCONNECTED");
+            HA_LOG_I("MQTT_EVENT_DISCONNECTED\r\n");
             ha_device->mqtt_info.mqtt_connect_status = false;
             ha_device->event_cb(HA_EVENT_MQTT_DISCONNECT, ha_device);
             break;
@@ -140,7 +140,7 @@ static axk_err_t event_cb(axk_mqtt_event_handle_t event)
             HA_LOG_I("MQTT_EVENT_UNSUBSCRIBED, msg_id=%d\r\n", event->msg_id);
             break;
         case MQTT_EVENT_PUBLISHED:
-            HA_LOG_I("MQTT_EVENT_PUBLISHED, msg_id=%d", event->msg_id);
+            HA_LOG_I("MQTT_EVENT_PUBLISHED, msg_id=%d\r\n", event->msg_id);
             break;
         case MQTT_EVENT_DATA:
             HA_LOG_I("MQTT_EVENT_DATA\r\n");
@@ -159,7 +159,7 @@ static axk_err_t event_cb(axk_mqtt_event_handle_t event)
                 HA_LOG_E("HomeAssistant is offline\r\n");
             break;
         case MQTT_EVENT_ERROR:
-            HA_LOG_I("MQTT_EVENT_ERROR");
+            HA_LOG_I("MQTT_EVENT_ERROR\r\n");
             if (event->error_handle->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT) {
                 log_error_if_nonzero("reported from axk-tls", event->error_handle->axk_tls_last_axk_err);
                 log_error_if_nonzero("reported from tls stack", event->error_handle->axk_tls_stack_err);

@@ -609,6 +609,208 @@ static void  entity_text_add_node(ha_text_entity_t* text_new_node)
 }
 #endif
 /**
+ * @brief 空调设备
+ *
+*/
+#if CONFIG_ENTITY_ENABLE_CLIMATE_HVAC
+
+static void homeAssistant_create_climate_HVAC_data(ha_climateHVAC_t* climateHVAC_entity, cJSON* device_json)
+{
+    if (climateHVAC_entity==NULL) {
+        HA_LOG_E("entity climateHVAC buff is NULL\r\n");
+        return;
+    }
+    cJSON* root = cJSON_CreateObject();
+    if (climateHVAC_entity->name!=NULL)cJSON_AddStringToObject(root, "name", climateHVAC_entity->name);
+    if (climateHVAC_entity->unique_id!=NULL)
+    {
+
+        char* unique_id = unique_id = pvPortMalloc(5);
+        memset(unique_id, 0, 5);
+        sprintf(unique_id, "-%02x%2x", STA_MAC[4], STA_MAC[5]);
+        HA_LOG_F("unique_id =%s\r\n", unique_id);
+        climateHVAC_entity->unique_id = strncat(climateHVAC_entity->unique_id, unique_id, 5);
+        cJSON_AddStringToObject(root, "unique_id", climateHVAC_entity->unique_id);
+        vPortFree(unique_id);
+
+    }
+    if (climateHVAC_entity->icon!=NULL)cJSON_AddStringToObject(root, "icon", climateHVAC_entity->icon);
+    if (climateHVAC_entity->availability_template!=NULL)cJSON_AddStringToObject(root, "availability_template", climateHVAC_entity->availability_template);
+
+    if (climateHVAC_entity->availability_topic!=NULL)cJSON_AddStringToObject(root, "availability_topic", climateHVAC_entity->availability_topic);
+    else cJSON_AddStringToObject(root, "availability_topic", ha_device->availability_topic);
+    if (climateHVAC_entity->payload_available!=NULL)cJSON_AddStringToObject(root, "payload_available", climateHVAC_entity->payload_available);
+    else  cJSON_AddStringToObject(root, "payload_available", ha_device->payload_available);
+    if (climateHVAC_entity->payload_not_available!=NULL)cJSON_AddStringToObject(root, "payload_not_available", climateHVAC_entity->payload_not_available);
+    else cJSON_AddStringToObject(root, "payload_not_available", ha_device->payload_not_available);
+
+    if (climateHVAC_entity->payload_off!=NULL) cJSON_AddStringToObject(root, "payload_off", climateHVAC_entity->payload_off);
+    if (climateHVAC_entity->payload_on!=NULL) cJSON_AddStringToObject(root, "payload_on", climateHVAC_entity->payload_on);
+    //定义监听湿度的TOPIC
+    if (climateHVAC_entity->current_humidity_template!=NULL) cJSON_AddStringToObject(root, "current_humidity_template", climateHVAC_entity->current_humidity_template);
+    if (climateHVAC_entity->current_humidity_topic!=NULL)cJSON_AddStringToObject(root, "current_humidity_topic", climateHVAC_entity->current_humidity_topic);
+    //定义监听温度的topic
+    if (climateHVAC_entity->current_temperature_template!=NULL)cJSON_AddStringToObject(root, "current_temperature_template", climateHVAC_entity->current_temperature_template);
+    if (climateHVAC_entity->current_temperature_topic!=NULL)cJSON_AddStringToObject(root, "current_temperature_topic", climateHVAC_entity->current_temperature_topic);
+    //
+    if (!climateHVAC_entity->enabled_by_default)cJSON_AddFalseToObject(root, "enabled_by_default");
+    if (climateHVAC_entity->encoding!=NULL)cJSON_AddStringToObject(root, "encoding", climateHVAC_entity->encoding);
+    if (climateHVAC_entity->entity_category!=NULL)cJSON_AddStringToObject(root, "entity_category", climateHVAC_entity->entity_category);
+
+    //风力模式控制
+    if (climateHVAC_entity->fan_mode_command_template!=NULL)cJSON_AddStringToObject(root, "fan_mode_command_template", climateHVAC_entity->fan_mode_command_template);
+    if (climateHVAC_entity->fan_mode_command_topic!=NULL)cJSON_AddStringToObject(root, "fan_mode_command_topic", climateHVAC_entity->fan_mode_command_topic);
+    if (climateHVAC_entity->fan_mode_state_template!=NULL)cJSON_AddStringToObject(root, "fan_mode_state_template", climateHVAC_entity->fan_mode_state_template);
+    if (climateHVAC_entity->fan_modes[0]!=NULL) {
+        cJSON* fan_modes = cJSON_CreateArray();
+        if (climateHVAC_entity->fan_modes[0]!=NULL) cJSON_AddItemToArray(fan_modes, cJSON_CreateString(climateHVAC_entity->fan_modes[0]));
+        if (climateHVAC_entity->fan_modes[1]!=NULL) cJSON_AddItemToArray(fan_modes, cJSON_CreateString(climateHVAC_entity->fan_modes[1]));
+        if (climateHVAC_entity->fan_modes[2]!=NULL) cJSON_AddItemToArray(fan_modes, cJSON_CreateString(climateHVAC_entity->fan_modes[2]));
+        if (climateHVAC_entity->fan_modes[3]!=NULL) cJSON_AddItemToArray(fan_modes, cJSON_CreateString(climateHVAC_entity->fan_modes[3]));
+        cJSON_AddItemToObject(root, "fan_modes", fan_modes);
+    }
+    if (climateHVAC_entity->initial!=0.00)cJSON_AddNumberToObject(root, "initial", climateHVAC_entity->initial);
+    if (climateHVAC_entity->icon!=NULL)cJSON_AddStringToObject(root, "icon", climateHVAC_entity->icon);
+    if (climateHVAC_entity->json_attributes_template!=NULL)cJSON_AddStringToObject(root, "json_attributes_template", climateHVAC_entity->json_attributes_template);
+    if (climateHVAC_entity->json_attributes_topic!=NULL)cJSON_AddStringToObject(root, "json_attributes_topic", climateHVAC_entity->json_attributes_topic);
+
+    if (climateHVAC_entity->max_humidity!=0.00)cJSON_AddNumberToObject(root, "max_humidity", climateHVAC_entity->max_humidity);
+    if (climateHVAC_entity->max_temp!=0.00)cJSON_AddNumberToObject(root, "max_temp", climateHVAC_entity->max_temp);
+    if (climateHVAC_entity->min_humidity!=0.0)cJSON_AddNumberToObject(root, "min_humidity", climateHVAC_entity->min_humidity);
+    if (climateHVAC_entity->min_temp!=0.0)cJSON_AddNumberToObject(root, "min_temp", climateHVAC_entity->min_temp);
+    //定义模式
+    if (climateHVAC_entity->mode_command_template!=NULL)cJSON_AddStringToObject(root, "mode_command_template", climateHVAC_entity->mode_command_template);
+    if (climateHVAC_entity->mode_command_topic!=NULL)cJSON_AddStringToObject(root, "mode_command_topic", climateHVAC_entity->mode_command_topic);
+    if (climateHVAC_entity->mode_state_template!=NULL)cJSON_AddStringToObject(root, "mode_state_template", climateHVAC_entity->mode_state_template);
+    if (climateHVAC_entity->mode_state_topic!=NULL)cJSON_AddStringToObject(root, "mode_state_topic", climateHVAC_entity->mode_state_topic);
+    if (climateHVAC_entity->modes[0]!=NULL) {
+        cJSON* modes = cJSON_CreateArray();
+        if (climateHVAC_entity->modes[0]!=NULL) cJSON_AddItemToArray(modes, cJSON_CreateString(climateHVAC_entity->modes[0]));
+        if (climateHVAC_entity->modes[1]!=NULL) cJSON_AddItemToArray(modes, cJSON_CreateString(climateHVAC_entity->modes[1]));
+        if (climateHVAC_entity->modes[2]!=NULL) cJSON_AddItemToArray(modes, cJSON_CreateString(climateHVAC_entity->modes[2]));
+        if (climateHVAC_entity->modes[3]!=NULL) cJSON_AddItemToArray(modes, cJSON_CreateString(climateHVAC_entity->modes[3]));
+        if (climateHVAC_entity->modes[4]!=NULL) cJSON_AddItemToArray(modes, cJSON_CreateString(climateHVAC_entity->modes[4]));
+        if (climateHVAC_entity->modes[5]!=NULL) cJSON_AddItemToArray(modes, cJSON_CreateString(climateHVAC_entity->modes[5]));
+        cJSON_AddItemToObject(root, "modes", modes);
+    }
+    //定义开关
+    if (climateHVAC_entity->power_command_template!=NULL)cJSON_AddStringToObject(root, "power_command_template", climateHVAC_entity->power_command_template);
+    if (climateHVAC_entity->power_command_topic!=NULL) cJSON_AddStringToObject(root, "power_command_topic", climateHVAC_entity->power_command_topic);
+    //控制精度
+    if (climateHVAC_entity->precision!=0.0)cJSON_AddNumberToObject(root, "precision", climateHVAC_entity->precision);
+    //预设模式配置
+    if (climateHVAC_entity->preset_mode_command_template!=NULL)cJSON_AddStringToObject(root, "preset_mode_command_template", climateHVAC_entity->preset_mode_command_template);
+    if (climateHVAC_entity->preset_mode_command_topic!=NULL)cJSON_AddStringToObject(root, "preset_mode_command_topic", climateHVAC_entity->preset_mode_command_topic);
+    if (climateHVAC_entity->preset_mode_state_topic!=NULL)cJSON_AddStringToObject(root, "preset_mode_state_topic", climateHVAC_entity->preset_mode_state_topic);
+    if (climateHVAC_entity->preset_mode_value_template!=NULL)cJSON_AddStringToObject(root, "preset_mode_value_template", climateHVAC_entity->preset_mode_value_template);
+    if (climateHVAC_entity->preset_modes[0]!=NULL) {
+        cJSON* preset_modes = cJSON_CreateArray();
+        if (climateHVAC_entity->preset_modes[0]!=NULL) cJSON_AddItemToArray(preset_modes, cJSON_CreateString(climateHVAC_entity->preset_modes[0]));
+        if (climateHVAC_entity->preset_modes[1]!=NULL) cJSON_AddItemToArray(preset_modes, cJSON_CreateString(climateHVAC_entity->preset_modes[1]));
+        if (climateHVAC_entity->preset_modes[2]!=NULL) cJSON_AddItemToArray(preset_modes, cJSON_CreateString(climateHVAC_entity->preset_modes[2]));
+        if (climateHVAC_entity->preset_modes[3]!=NULL) cJSON_AddItemToArray(preset_modes, cJSON_CreateString(climateHVAC_entity->preset_modes[3]));
+        if (climateHVAC_entity->preset_modes[4]!=NULL) cJSON_AddItemToArray(preset_modes, cJSON_CreateString(climateHVAC_entity->preset_modes[4]));
+        if (climateHVAC_entity->preset_modes[5]!=NULL) cJSON_AddItemToArray(preset_modes, cJSON_CreateString(climateHVAC_entity->preset_modes[5]));
+        if (climateHVAC_entity->preset_modes[6]!=NULL) cJSON_AddItemToArray(preset_modes, cJSON_CreateString(climateHVAC_entity->preset_modes[6]));
+        cJSON_AddItemToObject(root, "preset_modes", preset_modes);
+    }
+    if (climateHVAC_entity->qos!=0) cJSON_AddNumberToObject(root, "qos", climateHVAC_entity->qos);
+    if (climateHVAC_entity->retain) cJSON_AddTrueToObject(root, "retain");
+    //摆风模式
+    if (climateHVAC_entity->swing_mode_command_template!=NULL)cJSON_AddStringToObject(root, "swing_mode_command_template", climateHVAC_entity->swing_mode_command_template);
+    if (climateHVAC_entity->swing_mode_command_topic!=NULL)cJSON_AddStringToObject(root, "swing_mode_command_topic", climateHVAC_entity->swing_mode_command_topic);
+    if (climateHVAC_entity->swing_mode_state_template!=NULL)cJSON_AddStringToObject(root, "swing_mode_state_template", climateHVAC_entity->swing_mode_state_template);
+    if (climateHVAC_entity->swing_mode_state_topic!=NULL)cJSON_AddStringToObject(root, "swing_mode_state_topic", climateHVAC_entity->swing_mode_state_topic);
+    if (climateHVAC_entity->swing_modes[0]!=NULL) {
+        cJSON* swing_modes = cJSON_CreateArray();
+        if (climateHVAC_entity->swing_modes[0]!=NULL) cJSON_AddItemToArray(swing_modes, cJSON_CreateString(climateHVAC_entity->swing_modes[0]));
+        if (climateHVAC_entity->swing_modes[1]!=NULL) cJSON_AddItemToArray(swing_modes, cJSON_CreateString(climateHVAC_entity->swing_modes[1]));
+        if (climateHVAC_entity->swing_modes[2]!=NULL) cJSON_AddItemToArray(swing_modes, cJSON_CreateString(climateHVAC_entity->swing_modes[2]));
+        if (climateHVAC_entity->swing_modes[3]!=NULL) cJSON_AddItemToArray(swing_modes, cJSON_CreateString(climateHVAC_entity->swing_modes[3]));
+        if (climateHVAC_entity->swing_modes[4]!=NULL) cJSON_AddItemToArray(swing_modes, cJSON_CreateString(climateHVAC_entity->swing_modes[4]));
+        if (climateHVAC_entity->swing_modes[5]!=NULL) cJSON_AddItemToArray(swing_modes, cJSON_CreateString(climateHVAC_entity->swing_modes[5]));
+        if (climateHVAC_entity->swing_modes[6]!=NULL) cJSON_AddItemToArray(swing_modes, cJSON_CreateString(climateHVAC_entity->swing_modes[6]));
+        if (climateHVAC_entity->swing_modes[7]!=NULL) cJSON_AddItemToArray(swing_modes, cJSON_CreateString(climateHVAC_entity->swing_modes[7]));
+        if (climateHVAC_entity->swing_modes[8]!=NULL) cJSON_AddItemToArray(swing_modes, cJSON_CreateString(climateHVAC_entity->swing_modes[8]));
+        if (climateHVAC_entity->swing_modes[9]!=NULL) cJSON_AddItemToArray(swing_modes, cJSON_CreateString(climateHVAC_entity->swing_modes[9]));
+        cJSON_AddItemToObject(root, "swing_modes", swing_modes);
+    }
+    //目标湿度
+    if (climateHVAC_entity->target_humidity_command_template!=NULL)cJSON_AddStringToObject(root, "target_humidity_command_template", climateHVAC_entity->target_humidity_command_template);
+    if (climateHVAC_entity->target_humidity_command_topic!=NULL)cJSON_AddStringToObject(root, "target_humidity_command_topic", climateHVAC_entity->target_humidity_command_topic);
+    if (climateHVAC_entity->target_humidity_state_template!=NULL)cJSON_AddStringToObject(root, "target_humidity_state_template", climateHVAC_entity->target_humidity_state_template);
+    if (climateHVAC_entity->target_humidity_state_topic!=NULL)cJSON_AddStringToObject(root, "target_humidity_state_topic", climateHVAC_entity->target_humidity_state_topic);
+    //目标温度配置
+    if (climateHVAC_entity->temperature_command_template!=NULL)cJSON_AddStringToObject(root, "temperature_command_template", climateHVAC_entity->temperature_command_template);
+    if (climateHVAC_entity->temperature_command_topic!=NULL)cJSON_AddStringToObject(root, "temperature_command_topic", climateHVAC_entity->temperature_command_topic);
+    if (climateHVAC_entity->temperature_high_command_template!=NULL)cJSON_AddStringToObject(root, "temperature_high_command_template", climateHVAC_entity->temperature_high_command_template);
+    if (climateHVAC_entity->temperature_high_command_topic!=NULL)cJSON_AddStringToObject(root, "temperature_high_command_topic", climateHVAC_entity->temperature_high_command_topic);
+    if (climateHVAC_entity->temperature_high_state_template!=NULL)cJSON_AddStringToObject(root, "temperature_high_state_template", climateHVAC_entity->temperature_high_state_template);
+    if (climateHVAC_entity->temperature_high_state_topic!=NULL)cJSON_AddStringToObject(root, "temperature_high_state_topic", climateHVAC_entity->temperature_high_state_topic);
+    if (climateHVAC_entity->temperature_low_command_template!=NULL)cJSON_AddStringToObject(root, "temperature_low_command_template", climateHVAC_entity->temperature_low_command_template);
+    if (climateHVAC_entity->temperature_low_command_topic!=NULL)cJSON_AddStringToObject(root, "temperature_low_command_topic", climateHVAC_entity->temperature_low_command_topic);
+    if (climateHVAC_entity->temperature_low_state_template!=NULL)cJSON_AddStringToObject(root, "temperature_low_state_template", climateHVAC_entity->temperature_low_state_template);
+    if (climateHVAC_entity->temperature_low_state_topic!=NULL)cJSON_AddStringToObject(root, "temperature_low_state_topic", climateHVAC_entity->temperature_low_state_topic);
+    if (climateHVAC_entity->temperature_state_template!=NULL)cJSON_AddStringToObject(root, "temperature_state_template", climateHVAC_entity->temperature_state_template);
+    if (climateHVAC_entity->temperature_state_topic!=NULL)cJSON_AddStringToObject(root, "temperature_state_topic", climateHVAC_entity->temperature_state_topic);
+    if (climateHVAC_entity->temperature_unit!=NULL)cJSON_AddStringToObject(root, "temperature_unit", climateHVAC_entity->temperature_unit);
+    if (climateHVAC_entity->temp_step!=0.0)cJSON_AddNumberToObject(root, "temp_step", climateHVAC_entity->temp_step);
+
+    if (climateHVAC_entity->unique_id!=NULL)cJSON_AddStringToObject(root, "unique_id", climateHVAC_entity->unique_id);
+    if (climateHVAC_entity->value_template!=NULL)cJSON_AddStringToObject(root, "value_template", climateHVAC_entity->value_template);
+    if (device_json!=NULL)cJSON_AddItemToObject(root, "device", device_json);
+    climateHVAC_entity->config_data = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
+}
+
+static void  entity_climate_HVAC_add_node(ha_climateHVAC_t* climateHVAC_new_node)
+{
+    ha_climateHVAC_t* climateHVAC_list_handle = ha_device->entity_climateHVAC->climateHVAC_list->prev;
+    //初始化相关的参数
+    climateHVAC_new_node->enabled_by_default = true;
+    if (climateHVAC_new_node->power_command_topic==NULL) {
+        climateHVAC_new_node->power_command_topic = pvPortMalloc(256);
+        memset(climateHVAC_new_node->power_command_topic, 0, 256);
+        sprintf(climateHVAC_new_node->power_command_topic, "%s/%s/%s/power/set", CONFIG_HA_AUTOMATIC_DISCOVERY, CONFIG_HA_ENTITY_CLIMATE_HVAC, climateHVAC_new_node->unique_id);
+        if (climateHVAC_new_node->payload_on==NULL)climateHVAC_new_node->payload_on = "ON";
+        if (climateHVAC_new_node->payload_off==NULL)climateHVAC_new_node->payload_off = "OFF";
+    }
+    if (climateHVAC_new_node->mode_command_topic==NULL) {
+        climateHVAC_new_node->mode_command_topic = pvPortMalloc(256);
+        memset(climateHVAC_new_node->mode_command_topic, 0, 256);
+        sprintf(climateHVAC_new_node->mode_command_topic, "%s/%s/%s/modes/set", CONFIG_HA_AUTOMATIC_DISCOVERY, CONFIG_HA_ENTITY_CLIMATE_HVAC, climateHVAC_new_node->unique_id);
+        // climateHVAC_new_node->modes[0] = "off";
+        // climateHVAC_new_node->modes[1] = "cool";
+        // climateHVAC_new_node->modes[2] = "fan_only";
+    }
+    //
+    homeAssistant_create_climate_HVAC_data(climateHVAC_new_node, homeAssistant_device_create());
+
+    if (climateHVAC_new_node->entity_config_topic==NULL) {
+        climateHVAC_new_node->entity_config_topic = pvPortMalloc(128);
+        memset(climateHVAC_new_node->entity_config_topic, 0, 128);
+        sprintf(climateHVAC_new_node->entity_config_topic, "%s/%s/%s/config", CONFIG_HA_AUTOMATIC_DISCOVERY, CONFIG_HA_ENTITY_CLIMATE_HVAC, climateHVAC_new_node->unique_id);
+        HA_LOG_I("config topic=%s\r\n", climateHVAC_new_node->entity_config_topic);
+    }
+    if (ha_device->mqtt_info.mqtt_connect_status) {
+        homeAssistant_mqtt_port_public(climateHVAC_new_node->entity_config_topic, climateHVAC_new_node->config_data, 1, 1);
+        if (climateHVAC_new_node->power_command_topic!=NULL)homeAssistant_mqtt_port_subscribe(climateHVAC_new_node->power_command_topic, 1);
+        if (climateHVAC_new_node->mode_command_topic!=NULL)homeAssistant_mqtt_port_subscribe(climateHVAC_new_node->mode_command_topic, 1);
+        if (climateHVAC_new_node->availability_topic!=NULL)homeAssistant_mqtt_port_public(climateHVAC_new_node->availability_topic, climateHVAC_new_node->payload_available, 0, 0);
+    }
+    else {
+        HA_LOG_E("MQTT server is diconnenct\r\n");
+    }
+
+    climateHVAC_list_handle->next = climateHVAC_new_node;
+    climateHVAC_new_node->prev = climateHVAC_new_node;
+    climateHVAC_new_node->next = ha_device->entity_climateHVAC->climateHVAC_list;
+    ha_device->entity_climateHVAC->climateHVAC_list->prev = climateHVAC_new_node;
+
+    vPortFree(climateHVAC_new_node->config_data);
+}
+#endif
+/**
  * @brief homeAssistant_get_command
  *      获取 服务器指令事件，并把相应实体指针指向对应的实体
  * @param topic
@@ -698,6 +900,66 @@ ha_event_t homeAssistant_get_command(const char* topic, unsigned short topic_len
         if (text_cur->next == ha_device->entity_text->text_list)break;
         else
             switch_cur = switch_cur->next;
+    }
+#endif
+
+#if CONFIG_ENTITY_ENABLE_CLIMATE_HVAC
+    ha_climateHVAC_t* climateHVAC_cur = ha_device->entity_climateHVAC->climateHVAC_list->next;
+    while (climateHVAC_cur!=ha_device->entity_climateHVAC->climateHVAC_list)
+    {
+        //通过开关
+        if (climateHVAC_cur->power_command_topic!=NULL) {
+            if (!strncmp(topic, climateHVAC_cur->power_command_topic, topic_len)) {
+                if (climateHVAC_cur->payload_on==NULL) {
+                    climateHVAC_cur->payload_on = pvPortMalloc(2);
+                    if (!strcmp(data, "ON")) {
+                        memset(climateHVAC_cur->payload_on, 0, data_len);
+                        strcpy(climateHVAC_cur->payload_on, data);
+                        climateHVAC_cur->power_state = true;
+                        event = HA_EVENT_MQTT_COMMAND_CLIMATE_HVAC_POWER;
+                        ha_device->entity_climateHVAC->command_climateHVAC = climateHVAC_cur;
+                        return event;
+                    }
+                }
+                else {
+                    if (!strcmp(data, "ON")) {
+                        memset(climateHVAC_cur->payload_on, 0, data_len);
+                        strcpy(climateHVAC_cur->payload_on, data);
+                        climateHVAC_cur->power_state = true;
+                        event = HA_EVENT_MQTT_COMMAND_CLIMATE_HVAC_POWER;
+                        ha_device->entity_climateHVAC->command_climateHVAC = climateHVAC_cur;
+                        return event;
+                    }
+                }
+
+                if (climateHVAC_cur->payload_off==NULL) {
+                    climateHVAC_cur->payload_off = pvPortMalloc(3);
+                    if (!strcmp(data, "OFF")) {
+                        memset(climateHVAC_cur->payload_off, 0, data_len);
+                        strcpy(climateHVAC_cur->payload_off, data);
+                        climateHVAC_cur->power_state = false;
+                        event = HA_EVENT_MQTT_COMMAND_CLIMATE_HVAC_POWER;
+                        ha_device->entity_climateHVAC->command_climateHVAC = climateHVAC_cur;
+                        return event;
+                    }
+                }
+                else {
+                    if (!strcmp(data, "OFF")) {
+                        memset(climateHVAC_cur->payload_off, 0, data_len);
+                        strcpy(climateHVAC_cur->payload_off, data);
+                        climateHVAC_cur->power_state = false;
+                        event = HA_EVENT_MQTT_COMMAND_CLIMATE_HVAC_POWER;
+                        ha_device->entity_climateHVAC->command_climateHVAC = climateHVAC_cur;
+                        return event;
+                    }
+                }
+
+            }
+        }
+
+        if (climateHVAC_cur->next == ha_device->entity_climateHVAC->climateHVAC_list)break;
+        else
+            climateHVAC_cur = climateHVAC_cur->next;
     }
 #endif
     return event;
@@ -814,6 +1076,27 @@ void update_all_entity_to_homeassistant(void)
         }
     }
 
+#endif
+
+#if CONFIG_ENTITY_ENABLE_CLIMATE_HVAC
+    ha_climateHVAC_t* climateHVAC_cur = ha_device->entity_climateHVAC->climateHVAC_list->next;
+    if (climateHVAC_cur!=ha_device->entity_climateHVAC->climateHVAC_list) {
+        while (climateHVAC_cur!=ha_device->entity_climateHVAC->climateHVAC_list) {
+            homeAssistant_create_climate_HVAC_data(climateHVAC_cur, homeAssistant_device_create());
+            homeAssistant_mqtt_port_public(climateHVAC_cur->entity_config_topic, climateHVAC_cur->config_data, 0, 0);
+            vPortFree(climateHVAC_cur->config_data);
+
+            if (climateHVAC_cur->availability_topic!=NULL)
+                ret = homeAssistant_mqtt_port_public(climateHVAC_cur->availability_topic, climateHVAC_cur->payload_available, 0, 1);
+            else  ret = homeAssistant_mqtt_port_public(ha_device->availability_topic, ha_device->payload_available, 0, 1);
+            //更新实体状态
+            // if (climateHVAC_cur.) {
+            //     homeAssistant_device_send_entity_state(ha_device->entity_climateHVAC->entity_type, climateHVAC_cur, 0);
+
+            // }
+            climateHVAC_cur = climateHVAC_cur->next;
+        }
+    }
 #endif
 }
 
@@ -935,6 +1218,15 @@ void homeAssistant_device_init(homeAssisatnt_device_t* ha_dev, void(*event_cb)(h
     ha_device->entity_text->text_list->prev = ha_device->entity_text->text_list;
     ha_device->entity_text->text_list->next = ha_device->entity_text->text_list;
 #endif
+
+#if CONFIG_ENTITY_ENABLE_CLIMATE_HVAC
+    ha_device->entity_climateHVAC = pvPortMalloc(sizeof(ha_climateHVAC_list_t));
+    ha_device->entity_climateHVAC->entity_type = CONFIG_HA_ENTITY_CLIMATE_HVAC;
+    ha_device->entity_climateHVAC->climateHVAC_list = pvPortMalloc(sizeof(ha_climateHVAC_t));
+    ha_device->entity_climateHVAC->climateHVAC_list->prev = ha_device->entity_climateHVAC->climateHVAC_list;
+    ha_device->entity_climateHVAC->climateHVAC_list->next = ha_device->entity_climateHVAC->climateHVAC_list;
+#endif
+
     ha_device->event_cb = event_cb;
     homeAssistant_mqtt_init(ha_device);
     vPortFree(buff);
@@ -1021,7 +1313,15 @@ void homeAssistant_device_add_entity(char* entity_type, void* ha_entity_list)
         entity_text_add_node(text_node);
     }
 #endif
+#if CONFIG_ENTITY_ENABLE_CLIMATE_HVAC
+    if (!strcmp(entity_type, CONFIG_HA_ENTITY_CLIMATE_HVAC)) {
+        HA_LOG_I("HomeAssistant add text entity\r\n");
+        ha_climateHVAC_t* climateHVAC_node = (ha_climateHVAC_t*)ha_entity_list;
+        entity_climate_HVAC_add_node(climateHVAC_node);
     }
+#endif
+
+}
 
 int homeAssistant_device_send_entity_state(char* entity_type, void* ha_entity_list, unsigned short state)
 {
@@ -1091,8 +1391,18 @@ int homeAssistant_device_send_entity_state(char* entity_type, void* ha_entity_li
         else HA_LOG_E("text value is null\r\n");
     }
 #endif
-    return ret_id;
+
+#if CONFIG_ENTITY_ENABLE_CLIMATE_HVAC
+    if (!strcmp(entity_type, CONFIG_HA_ENTITY_CLIMATE_HVAC)) {
+        ha_climateHVAC_t* climateHVAC_node = (ha_climateHVAC_t*)ha_entity_list;
+        // if (climateHVAC_node.POW!=NULL&& climateHVAC_node->state_topic!=NULL) {
+        //     ret_id = homeAssistant_mqtt_port_public(text_node->state_topic, text_node->text_value, 0, 1);
+        // }
+        // else HA_LOG_E("text value is null\r\n");
     }
+#endif
+    return ret_id;
+}
 
 void* homeAssistant_fine_entity(char* entity_type, const char* unique_id)
 {
@@ -1162,6 +1472,18 @@ void* homeAssistant_fine_entity(char* entity_type, const char* unique_id)
         }
     }
 #endif
+
+#if CONFIG_ENTITY_ENABLE_CLIMATE_HVAC
+    if (!strcmp(entity_type, CONFIG_HA_ENTITY_CLIMATE_HVAC)) {
+        ha_climateHVAC_t* climateHVAC_cur = ha_device->entity_climateHVAC->climateHVAC_list->next;
+
+        while (climateHVAC_cur!=ha_device->entity_climateHVAC->climateHVAC_list) {
+            if (!strncmp(climateHVAC_cur->unique_id, unique_id, strlen(unique_id))) return climateHVAC_cur;
+            climateHVAC_cur = climateHVAC_cur->next;
+        }
+    }
+#endif
+
     HA_LOG_E("There is no %s entity unique id %s\r\n", entity_type, unique_id);
     return NULL;
-    }
+}

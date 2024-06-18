@@ -26,6 +26,12 @@ void ha_event_cb(ha_event_t event, homeAssisatnt_device_t* dev)
             .unique_id = "switch1"
             };
             homeAssistant_device_add_entity(CONFIG_HA_ENTITY_SWITCH, &sw1);
+
+            static ha_climateHVAC_t AC1 = {
+                .name = "美的空调",
+                .unique_id = "AC_1",
+            };
+            homeAssistant_device_add_entity(CONFIG_HA_ENTITY_CLIMATE_HVAC, &AC1);
             homeAssistant_device_send_status(HOMEASSISTANT_STATUS_ONLINE);
             break;
             /*  服务器断开事件  */

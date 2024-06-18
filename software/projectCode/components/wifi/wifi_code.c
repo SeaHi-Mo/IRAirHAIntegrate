@@ -15,6 +15,7 @@
 #include "blog.h"
 #include "wifi_code.h"
 #include <aos/yloop.h>
+#include "lwip/dns.h"
 #include <aos/kernel.h>
 #include "device_state.h"
 #include <arpa/inet.h>
@@ -54,7 +55,7 @@ void quick_connect_wifi(wifi_info_t* wifi_info)
     memcpy(&dev_msg.wifi_info, wifi_info, sizeof(wifi_info_t));
     wifi_interface = wifi_mgmr_sta_enable();
     wifi_mgmr_sta_mac_get((uint8_t*)wifi_info->mac);
-    wifi_mgmr_sta_connect_mid(wifi_interface, wifi_info->ssid, NULL, wifi_info->pmk, NULL, wifi_info->band, wifi_info->chan_id, 1, flags);
+    wifi_mgmr_sta_connect_mid(wifi_interface, wifi_info->ssid, NULL, wifi_info->pmk, NULL, 0, wifi_info->chan_id, 1, flags);
 }
 /**
  * @brief wifi 回调函数
@@ -127,6 +128,7 @@ static void event_cb_wifi_event(input_event_t* event, void* private_data)
             memset(dev_msg.wifi_info.ipv4_addr, 0, 16);
             uint32_t  gw, mask;
             wifi_mgmr_sta_ip_get(&dev_msg.wifi_info.addr_ip, &gw, &mask);
+
             if (dev_msg.wifi_info.addr_ip!=0) {
                 strcpy(dev_msg.wifi_info.ipv4_addr, ip4addr_ntoa(&dev_msg.wifi_info.addr_ip));
             }
@@ -195,6 +197,10 @@ static void proc_main_entry(void* pvParameters)
     aos_register_event_filter(EV_WIFI, event_cb_wifi_event, NULL);
     hal_wifi_start_firmware_task();
     aos_post_event(EV_WIFI, CODE_WIFI_ON_INIT_DONE, 0);
+    dns_init();
+    ip_addr_t dns_addr;
+    ip4addr_aton("223.5.5.5", &dns_addr);
+    dns_setserver(1, &dns_addr);
     vTaskDelete(NULL);
 }
 

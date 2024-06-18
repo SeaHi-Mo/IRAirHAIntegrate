@@ -183,49 +183,49 @@ static void at_ha_mqtt_config_set(char* cmd, uint16_t cmd_len)
         }
     }
 
-    if (dev_msg.ha_dev.mqtt_info.mqtt_host==NULL)dev_msg.ha_dev.mqtt_info.mqtt_host = malloc(64);
+    if (dev_msg.ha_dev->mqtt_info.mqtt_host==NULL)dev_msg.ha_dev->mqtt_info.mqtt_host = malloc(64);
 
-    memset(dev_msg.ha_dev.mqtt_info.mqtt_host, 0, sizeof(dev_msg.ha_dev.mqtt_info.mqtt_host));
-    strcpy(dev_msg.ha_dev.mqtt_info.mqtt_host, cmd_list[0]);
-    dev_msg.ha_dev.mqtt_info.port = atoi(cmd_list[1]);
+    memset(dev_msg.ha_dev->mqtt_info.mqtt_host, 0, sizeof(dev_msg.ha_dev->mqtt_info.mqtt_host));
+    strcpy(dev_msg.ha_dev->mqtt_info.mqtt_host, cmd_list[0]);
+    dev_msg.ha_dev->mqtt_info.port = atoi(cmd_list[1]);
     if (command_cnt==2) {
-        if (dev_msg.ha_dev.mqtt_info.mqtt_clientID!=NULL) {
-            vPortFree(dev_msg.ha_dev.mqtt_info.mqtt_clientID);
-            dev_msg.ha_dev.mqtt_info.mqtt_clientID = NULL;
+        if (dev_msg.ha_dev->mqtt_info.mqtt_clientID!=NULL) {
+            vPortFree(dev_msg.ha_dev->mqtt_info.mqtt_clientID);
+            dev_msg.ha_dev->mqtt_info.mqtt_clientID = NULL;
         }
-        if (dev_msg.ha_dev.mqtt_info.mqtt_username!=NULL) {
-            vPortFree(dev_msg.ha_dev.mqtt_info.mqtt_username);
-            dev_msg.ha_dev.mqtt_info.mqtt_username = NULL;
+        if (dev_msg.ha_dev->mqtt_info.mqtt_username!=NULL) {
+            vPortFree(dev_msg.ha_dev->mqtt_info.mqtt_username);
+            dev_msg.ha_dev->mqtt_info.mqtt_username = NULL;
         }
-        if (dev_msg.ha_dev.mqtt_info.mqtt_password!=NULL) {
-            vPortFree(dev_msg.ha_dev.mqtt_info.mqtt_password);
-            dev_msg.ha_dev.mqtt_info.mqtt_password = NULL;
+        if (dev_msg.ha_dev->mqtt_info.mqtt_password!=NULL) {
+            vPortFree(dev_msg.ha_dev->mqtt_info.mqtt_password);
+            dev_msg.ha_dev->mqtt_info.mqtt_password = NULL;
         }
     }
     //获取ClientID
     if (command_cnt==3 || command_cnt==4 ||command_cnt==5) {
 
-        if (dev_msg.ha_dev.mqtt_info.mqtt_clientID==NULL)dev_msg.ha_dev.mqtt_info.mqtt_clientID = pvPortMalloc(128);
-        memset(dev_msg.ha_dev.mqtt_info.mqtt_clientID, 0, sizeof dev_msg.ha_dev.mqtt_info.mqtt_clientID);
-        strcpy(dev_msg.ha_dev.mqtt_info.mqtt_clientID, cmd_list[2]);
+        if (dev_msg.ha_dev->mqtt_info.mqtt_clientID==NULL)dev_msg.ha_dev->mqtt_info.mqtt_clientID = pvPortMalloc(128);
+        memset(dev_msg.ha_dev->mqtt_info.mqtt_clientID, 0, sizeof dev_msg.ha_dev->mqtt_info.mqtt_clientID);
+        strcpy(dev_msg.ha_dev->mqtt_info.mqtt_clientID, cmd_list[2]);
     }
     //userName
     if (command_cnt==4 ||command_cnt==5) {
 
-        if (dev_msg.ha_dev.mqtt_info.mqtt_username==NULL)dev_msg.ha_dev.mqtt_info.mqtt_username = pvPortMalloc(64);
-        memset(dev_msg.ha_dev.mqtt_info.mqtt_username, 0, strlen(cmd_list[3]));
-        strcpy(dev_msg.ha_dev.mqtt_info.mqtt_username, cmd_list[3]);
+        if (dev_msg.ha_dev->mqtt_info.mqtt_username==NULL)dev_msg.ha_dev->mqtt_info.mqtt_username = pvPortMalloc(64);
+        memset(dev_msg.ha_dev->mqtt_info.mqtt_username, 0, strlen(cmd_list[3]));
+        strcpy(dev_msg.ha_dev->mqtt_info.mqtt_username, cmd_list[3]);
     }
 
     //password
     if (command_cnt==5) {
 
-        if (dev_msg.ha_dev.mqtt_info.mqtt_password==NULL)dev_msg.ha_dev.mqtt_info.mqtt_password = pvPortMalloc(64);
-        memset(dev_msg.ha_dev.mqtt_info.mqtt_password, 0, strlen(cmd_list[4]));
-        strcpy(dev_msg.ha_dev.mqtt_info.mqtt_password, cmd_list[4]);
+        if (dev_msg.ha_dev->mqtt_info.mqtt_password==NULL)dev_msg.ha_dev->mqtt_info.mqtt_password = pvPortMalloc(64);
+        memset(dev_msg.ha_dev->mqtt_info.mqtt_password, 0, strlen(cmd_list[4]));
+        strcpy(dev_msg.ha_dev->mqtt_info.mqtt_password, cmd_list[4]);
     }
 
-    bool ret = flash_save_mqtt_info(&dev_msg.ha_dev.mqtt_info);
+    bool ret = flash_save_mqtt_info(&dev_msg.ha_dev->mqtt_info);
     if (!ret) {
         AT_RESPONSE(AT_ERR);
         return;
@@ -239,15 +239,15 @@ static void at_ha_mqtt_config_check(char* cmd, uint16_t cmd_len)
         blog_error("parameter err \r\n");
         return;
     }
-    flash_get_mqtt_info(&dev_msg.ha_dev.mqtt_info);
-    if (dev_msg.ha_dev.mqtt_info.mqtt_host!=NULL) {
+    flash_get_mqtt_info(&dev_msg.ha_dev->mqtt_info);
+    if (dev_msg.ha_dev->mqtt_info.mqtt_host!=NULL) {
 
         char* str = pvPortMalloc(256);
         memset(str, 0, 256);
-        sprintf(str, "+HAMQTTCFG:%s,%d,<%s>,<%s>,<%s>\r\n", dev_msg.ha_dev.mqtt_info.mqtt_host, dev_msg.ha_dev.mqtt_info.port,
-        dev_msg.ha_dev.mqtt_info.mqtt_clientID==NULL?"null":dev_msg.ha_dev.mqtt_info.mqtt_clientID,
-        dev_msg.ha_dev.mqtt_info.mqtt_username==NULL?"null":dev_msg.ha_dev.mqtt_info.mqtt_username,
-        dev_msg.ha_dev.mqtt_info.mqtt_password==NULL?"null":dev_msg.ha_dev.mqtt_info.mqtt_password
+        sprintf(str, "+HAMQTTCFG:%s,%d,<%s>,<%s>,<%s>\r\n", dev_msg.ha_dev->mqtt_info.mqtt_host, dev_msg.ha_dev->mqtt_info.port,
+        dev_msg.ha_dev->mqtt_info.mqtt_clientID==NULL?"null":dev_msg.ha_dev->mqtt_info.mqtt_clientID,
+        dev_msg.ha_dev->mqtt_info.mqtt_username==NULL?"null":dev_msg.ha_dev->mqtt_info.mqtt_username,
+        dev_msg.ha_dev->mqtt_info.mqtt_password==NULL?"null":dev_msg.ha_dev->mqtt_info.mqtt_password
         );
         AT_RESPONSE(str);
         vPortFree(str);
@@ -304,16 +304,16 @@ static void at_ha_device_msg_set(char* cmd, uint16_t cmd_len)
         }
     }
     //解析设备名
-    if (dev_msg.ha_dev.name==NULL) dev_msg.ha_dev.name = pvPortMalloc(32);
-    memset(dev_msg.ha_dev.name, 0, 32);
-    strcpy(dev_msg.ha_dev.name, cmd_list[0]);
+    if (dev_msg.ha_dev->name==NULL) dev_msg.ha_dev->name = pvPortMalloc(32);
+    memset(dev_msg.ha_dev->name, 0, 32);
+    strcpy(dev_msg.ha_dev->name, cmd_list[0]);
 
     //解析产商名
-    if (dev_msg.ha_dev.manufacturer==NULL)dev_msg.ha_dev.manufacturer = pvPortMalloc(64);
-    memset(dev_msg.ha_dev.manufacturer, 0, 64);
-    strcpy(dev_msg.ha_dev.manufacturer, cmd_list[1]);
+    if (dev_msg.ha_dev->manufacturer==NULL)dev_msg.ha_dev->manufacturer = pvPortMalloc(64);
+    memset(dev_msg.ha_dev->manufacturer, 0, 64);
+    strcpy(dev_msg.ha_dev->manufacturer, cmd_list[1]);
     bool ret = flash_save_ha_device_msg(&dev_msg.ha_dev);
-    blog_debug("AT ha device name =%s ,manufacturer=%s ", dev_msg.ha_dev.name, dev_msg.ha_dev.manufacturer);
+    blog_debug("AT ha device name =%s ,manufacturer=%s ", dev_msg.ha_dev->name, dev_msg.ha_dev->manufacturer);
     if (!ret) {
         AT_RESPONSE(AT_ERR);
         return;
@@ -332,7 +332,7 @@ static void at_ha_device_msg_check(char* cmd, uint16_t cmd_len)
     {
         char* str = pvPortMalloc(256);
         memset(str, 0, 256);
-        sprintf(str, "+HADEVICEMSGCFG:%s,%s\r\n", dev_msg.ha_dev.name, dev_msg.ha_dev.manufacturer);
+        sprintf(str, "+HADEVICEMSGCFG:%s,%s\r\n", dev_msg.ha_dev->name, dev_msg.ha_dev->manufacturer);
         AT_RESPONSE(str);
         vPortFree(str);
     }

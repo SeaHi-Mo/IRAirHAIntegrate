@@ -44,12 +44,13 @@ static void device_state_task(void* arg)
                         //识别到该设备之后，发起连接
                         if (!memcmp(wifiMgmr.scan_items[i].ssid, dev_msg->wifi_info.ssid, strlen(dev_msg->wifi_info.ssid))) {
                             blog_info("scan \"%s\" is OK", dev_msg->wifi_info.ssid);
-                            dev_msg->wifi_info.band = wifiMgmr.wifi_mgmr_stat_info.chan_band;
-                            dev_msg->wifi_info.chan_id = wifiMgmr.scan_items[i].channel;
+                            dev_msg->wifi_info.band = 0;
+                            dev_msg->wifi_info.chan_id = 4212+wifiMgmr.scan_items[i].channel*5;
                             quick_connect_wifi(&dev_msg->wifi_info);
                         }
                     }
                 }
+                dev_msg->ha_dev = &ha_dev;
                 //读取HA MQTT信息
                 if (flash_get_mqtt_info(&ha_dev.mqtt_info)) {
                     if (flash_get_ha_device_msg(&ha_dev)) {
@@ -75,6 +76,7 @@ static void device_state_task(void* arg)
                     //重新保存新的WiFi信息
                     flash_save_wifi_info(&dev_msg->wifi_info);
                 }
+
                 // ir_device_send_cmd(IR_DEVICE_CMD_SET_BAUD_RATE_115200);
                 vTaskDelay(pdMS_TO_TICKS(100));
                 ir_device_send_cmd(IR_DEVICE_CMD_GET_BAUD_RATE);
@@ -120,6 +122,7 @@ void device_state_init(void* arg)
     device_led_init();
     device_button_init();
     sht30_device_init(SHT30_SINGLE_SAMPLE_NOCLOK_LOW);
+
     if (err == pdPASS) {
         blog_info("\"device_state_task\" is create OK");
     }

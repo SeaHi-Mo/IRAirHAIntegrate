@@ -46,7 +46,7 @@
 #define CONFIG_HA_ENTITY_FAN                 "fan"                         //风扇实体
 #define CONFIG_HA_ENTITY_HUMIDIFIER          "humidifier"                  //加湿器实体
 #define CONFIG_HA_ENTITY_IMAGE               "image"                       //图片实体
-#define CONFIG_HA_ENTITY_CLIMATE_HVAC        "climate_HVAC"                //空调实体
+#define CONFIG_HA_ENTITY_CLIMATE_HVAC        "climate"                      //空调实体
 #define CONFIG_HA_ENTITY_LAWN_MOWER          "lawn_mower"                  //割草机实体
 #define CONFIG_HA_ENTITY_LIGHT               "light"                       //灯实体
 #define CONFIG_HA_ENTITY_LOCK                "lock"                        //门锁实体
@@ -98,7 +98,7 @@
 #define CONFIG_ENTITY_ENABLE_IMAGE 0   
 
 //空调实体  默认不开启，需要使用就置 1                  
-#define CONFIG_ENTITY_ENABLE_CLIMATE_HVAC 0    
+#define CONFIG_ENTITY_ENABLE_CLIMATE_HVAC 1    
 
 //割草机实体   默认不开启，需要使用就置 1          
 #define CONFIG_ENTITY_ENABLE_LAWN_MOWER 0     

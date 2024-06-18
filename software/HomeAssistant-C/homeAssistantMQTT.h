@@ -31,7 +31,7 @@ typedef enum {
     HA_EVENT_MQTT_COMMAND_LIGHT_RGB_UPDATE,//light 灯的RGB 颜色下发事件
     HA_EVENT_MQTT_COMMAND_LIGHT_BRIGHTNESS,//light 灯的亮度数据下发事件
     HA_EVENT_MQTT_COMMAND_TEXT_VALUE,  //服务器下发text内容事件
-
+    HA_EVENT_MQTT_COMMAND_CLIMATE_HVAC_POWER,
     HA_EVENT_MQTT_ERROR,
 }ha_event_t;
 
@@ -459,6 +459,112 @@ typedef struct {
     ha_text_entity_t* command_text;
 }ha_text_list_t;
 #endif
+
+#if CONFIG_ENTITY_ENABLE_CLIMATE_HVAC
+
+
+typedef  struct homeAssisatnt_entity_climateHVAC {
+    char* action_template;
+    char* action_topic;
+    char* availability_mode;
+    char* availability_template;
+    char* availability_topic;
+    //监听当前的湿度
+    char* current_humidity_template;
+    char* current_humidity_topic;
+    //监听当前的温度
+    char* current_temperature_template;
+    char* current_temperature_topic;
+
+    bool enabled_by_default;
+    char* encoding;
+    char* entity_category;
+    //空调风力控制
+    char* fan_mode_command_template;
+    char* fan_mode_command_topic;
+    char* fan_mode_state_template;
+    char* fan_mode_state_topic;
+    char* fan_modes[4];
+    //初始化温度设定
+    float initial;  //设置初始目标温度。默认值取决于温度单位，为 21° 或 69.8°F。
+    char* icon;
+
+    char* json_attributes_template;
+    char* json_attributes_topic;
+
+    float max_humidity; //可设置的最大湿度值
+    float max_temp; //可设置的最大温度值
+    float min_humidity;//可设置的最小湿度值
+    float min_temp; //可设置的最小温度值
+
+    char* mode_command_template;
+    char* mode_command_topic;
+    char* mode_state_template;
+    char* mode_state_topic;
+    char* modes[6];
+
+    char* name;
+    char* object_id;
+    bool optimistic;
+    char* payload_available;
+    char* payload_not_available;
+    char* payload_off;
+    char* payload_on;
+
+    char* power_command_template;
+    char* power_command_topic;
+    bool power_state;
+
+    float precision;
+    char* preset_mode_command_template;
+    char* preset_mode_command_topic;
+    char* preset_mode_state_topic;
+    char* preset_mode_value_template;
+    char* preset_modes[7];
+
+    int qos;
+    bool retain;
+    char* swing_mode_command_template;
+    char* swing_mode_command_topic;
+    char* swing_mode_state_template;
+    char* swing_mode_state_topic;
+    char* swing_modes[10];
+
+    char* target_humidity_command_template;
+    char* target_humidity_command_topic;
+    char* target_humidity_state_topic;
+    char* target_humidity_state_template;
+
+    char* temperature_command_template;
+    char* temperature_command_topic;
+    char* temperature_high_command_template;
+    char* temperature_high_command_topic;
+    char* temperature_high_state_template;
+    char* temperature_high_state_topic;
+    char* temperature_low_command_template;
+    char* temperature_low_command_topic;
+    char* temperature_low_state_template;
+    char* temperature_low_state_topic;
+    char* temperature_state_template;
+    char* temperature_state_topic;
+    char* temperature_unit;
+    float temp_step;
+    char* unique_id;
+    char* value_template;
+    char* entity_config_topic;
+    char* config_data;
+
+    struct homeAssisatnt_entity_climateHVAC* prev;
+    struct homeAssisatnt_entity_climateHVAC* next;
+}ha_climateHVAC_t;
+
+typedef struct {
+    char* entity_type;
+    ha_climateHVAC_t* climateHVAC_list;
+    ha_climateHVAC_t* command_climateHVAC;
+}ha_climateHVAC_list_t;
+
+#endif
 /**
  * @brief  设备信息
  *
@@ -494,6 +600,12 @@ typedef struct homeAssisatnt_device {
 #if CONFIG_ENTITY_ENABLE_TEXT
     ha_text_list_t* entity_text;
 #endif
+
+
+#if CONFIG_ENTITY_ENABLE_CLIMATE_HVAC
+    ha_climateHVAC_list_t* entity_climateHVAC;
+#endif
+
     ha_mqtt_info_t mqtt_info;
     bool homeassistant_online;
     void (*event_cb)(ha_event_t event, struct homeAssisatnt_device* ha_dev);
