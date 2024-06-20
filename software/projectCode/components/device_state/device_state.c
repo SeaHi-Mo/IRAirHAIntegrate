@@ -50,7 +50,6 @@ static void device_state_task(void* arg)
                         }
                     }
                 }
-                dev_msg->ha_dev = &ha_dev;
                 //读取HA MQTT信息
                 if (flash_get_mqtt_info(&ha_dev.mqtt_info)) {
                     if (flash_get_ha_device_msg(&ha_dev)) {
@@ -80,8 +79,8 @@ static void device_state_task(void* arg)
                 // ir_device_send_cmd(IR_DEVICE_CMD_SET_BAUD_RATE_115200);
                 vTaskDelay(pdMS_TO_TICKS(100));
                 ir_device_send_cmd(IR_DEVICE_CMD_GET_BAUD_RATE);
-                sht3x_data_t* sht30_data = sht30_get_data();
-                blog_info(" temp =%.2fC humi=%d %%", sht30_data->temperature, sht30_data->humidity);
+                // sht3x_data_t* sht30_data = sht30_get_data();
+                // blog_info(" temp =%.2fC humi=%d %%", sht30_data->temperature, sht30_data->humidity);
             }
             break;
             case DEVICE_STATE_ATCMD_WIFICFG_SET:
@@ -106,8 +105,56 @@ static void device_state_task(void* arg)
                 break;
             case DEVICE_STATE_HOMEASSISTANT_CONNECT:
                 blog_info("<<<<<<<<<<<<<<< DEVICE_STATE_HOMEASSISTANT_CONNECT");
-                break;
 
+
+                break;
+            case DEVICE_STATE_HOMEASSISTANT_AC_POWER:
+            {
+                ha_climateHVAC_t* ha_ac1 = (ha_climateHVAC_t*)homeAssistant_fine_entity(CONFIG_HA_ENTITY_CLIMATE_HVAC, "AC_1");
+                blog_info("<<<<<<<<<<<<<<<  DEVICE_STATE_HOMEASSISTANT_AC_POWER %s", ha_ac1->power_state?"ON":"OFF");
+                ir_device_send_cmd(ha_ac1->power_state?IR_DEVICE_CMD_SEND_MIDEA_CODE_ON:IR_DEVICE_CMD_SEND_MIDEA_CODE_OFF);
+            }
+            break;
+            case  DEVICE_STATE_HOMEASSISTANT_AC_MODE:
+            {
+                ha_climateHVAC_t* ha_ac1 = (ha_climateHVAC_t*)homeAssistant_fine_entity(CONFIG_HA_ENTITY_CLIMATE_HVAC, "AC_1");
+                blog_info("<<<<<<<<<<<<<<<  DEVICE_STATE_HOMEASSISTANT_AC_MODE %d", ha_ac1->modes_type);
+                switch (ha_ac1->modes_type)
+                {
+                    case AC_MODES_AUTO:
+                        ir_device_send_cmd(IR_DEVICE_CMD_SEND_MIDEA_CODE_MODE_AUTO);
+                        break;
+                    case AC_MODES_COOL:
+                        ir_device_send_cmd(IR_DEVICE_CMD_SEND_MIDEA_CODE_MODE_COOL);
+                        break;
+                    case AC_MODES_DRY:
+                        ir_device_send_cmd(IR_DEVICE_CMD_SEND_MIDEA_CODE_MODE_DRY);
+                        break;
+                    case AC_MODES_HEAT:
+                        ir_device_send_cmd(IR_DEVICE_CMD_SEND_MIDEA_CODE_MODE_HEAT);
+                        break;
+                    case AC_MODES_FAN_ONLY:
+                        ir_device_send_cmd(IR_DEVICE_CMD_SEND_MIDEA_CODE_MODE_FAN_ONLY);
+                        break;
+                    default:
+                        break;
+                }
+            }
+            break;
+            case  DEVICE_STATE_HOMEASSISTANT_AC_TEMP:
+            {
+                ha_climateHVAC_t* ha_ac1 = (ha_climateHVAC_t*)homeAssistant_fine_entity(CONFIG_HA_ENTITY_CLIMATE_HVAC, "AC_1");
+                blog_info("<<<<<<<<<<<<<<<  DEVICE_STATE_HOMEASSISTANT_AC_TEMP %.1f", ha_ac1->temperature_value);
+                ir_device_send_cmd(ha_ac1->temperature_value+17);
+            }
+            break;
+            case DEVICE_STATE_HOMEASSISTANT_AC_FAN_MODE:
+            {
+                ha_climateHVAC_t* ha_ac1 = (ha_climateHVAC_t*)homeAssistant_fine_entity(CONFIG_HA_ENTITY_CLIMATE_HVAC, "AC_1");
+                blog_info("<<<<<<<<<<<<<<<  DEVICE_STATE_HOMEASSISTANT_AC_TEMP %d", ha_ac1->fan_modes_type);
+                ir_device_send_cmd(ha_ac1->fan_modes_type+IR_DEVICE_CMD_SEND_MIDEA_CODE_FAM_MODE_MUTE);
+            }
+            break;
             default:
                 break;
         }
@@ -125,7 +172,7 @@ void device_state_init(void* arg)
     wifi_device_init();
     device_led_init();
     device_button_init();
-    sht30_device_init(SHT30_SINGLE_SAMPLE_NOCLOK_LOW);
+    // sht30_device_init(SHT30_SINGLE_SAMPLE_NOCLOK_LOW);
 
     if (err == pdPASS) {
         blog_info("\"device_state_task\" is create OK");

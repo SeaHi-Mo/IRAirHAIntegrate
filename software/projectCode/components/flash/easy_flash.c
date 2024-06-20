@@ -267,3 +267,13 @@ int flash_get_ha_device_msg(void* value)
     vPortFree(flash_data);
     return  result;
 }
+
+bool flash_set_ir_code(const char* data_name, char* ir_data, unsigned short int data_len)
+{
+    return ef_set_bytes(data_name, ir_data, data_len);
+}
+
+int flash_get_ir_code(const char* data_name, char* ir_data, unsigned short int data_len)
+{
+    return ef_get_bytes(data_name, ir_data, data_len);
+}

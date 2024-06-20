@@ -25,6 +25,8 @@ void ha_event_cb(ha_event_t event, homeAssisatnt_device_t* dev)
             static ha_climateHVAC_t AC1 = {
                 .name = "美的空调",
                 .unique_id = "AC_1",
+                .max_temp = 30.0,
+                .min_temp = 17.0,
             };
             homeAssistant_device_add_entity(CONFIG_HA_ENTITY_CLIMATE_HVAC, &AC1);
             homeAssistant_device_send_status(HOMEASSISTANT_STATUS_ONLINE);
@@ -40,11 +42,24 @@ void ha_event_cb(ha_event_t event, homeAssisatnt_device_t* dev)
         case HA_EVENT_MQTT_COMMAND_CLIMATE_HVAC_POWER:
             HA_LOG_I("<<<<<<<<<< HA_EVENT_MQTT_COMMAND_CLIMATE_HVAC_POWER=%s\r\n", dev->entity_climateHVAC->command_climateHVAC->power_state?"ON":"OFF");
             homeAssistant_device_send_entity_state(CONFIG_HA_ENTITY_CLIMATE_HVAC, dev->entity_climateHVAC->command_climateHVAC, dev->entity_climateHVAC->command_climateHVAC->power_state);
+            dev_msg.device_state = DEVICE_STATE_HOMEASSISTANT_AC_POWER;
+            device_state_update(false, &dev_msg);
             break;
         case HA_EVENT_MQTT_COMMAND_CLIMATE_HVAC_MODES:
             HA_LOG_I("<<<<<<<<<< HA_EVENT_MQTT_COMMAND_CLIMATE_HVAC_MODES\r\n");
             homeAssistant_device_send_entity_state(CONFIG_HA_ENTITY_CLIMATE_HVAC, dev->entity_climateHVAC->command_climateHVAC, 1);
-
+            dev_msg.device_state = DEVICE_STATE_HOMEASSISTANT_AC_MODE;
+            device_state_update(false, &dev_msg);
+            break;
+        case HA_EVENT_MQTT_COMMAND_CLIMATE_HVAC_TEMP:
+            HA_LOG_I("<<<<<<<<<< HA_EVENT_MQTT_COMMAND_CLIMATE_HVAC_TEMP temp=%0.2f\r\n", dev->entity_climateHVAC->command_climateHVAC->temperature_value);
+            dev_msg.device_state = DEVICE_STATE_HOMEASSISTANT_AC_TEMP;
+            device_state_update(false, &dev_msg);
+            break;
+        case HA_EVENT_MQTT_COMMAND_CLIMATE_HVAC_FAN_MODES:
+            HA_LOG_I("<<<<<<<<<< HA_EVENT_MQTT_COMMAND_CLIMATE_HVAC_FAN_MODES temp=%d\r\n", dev->entity_climateHVAC->command_climateHVAC->fan_modes_type);
+            dev_msg.device_state = DEVICE_STATE_HOMEASSISTANT_AC_FAN_MODE;
+            device_state_update(false, &dev_msg);
             break;
         default:
             break;

@@ -33,4 +33,6 @@ int flash_get_mqtt_info(void* value);
 bool flash_save_ha_device_msg(void* value);
 int flash_get_ha_device_msg(void* value);
 bool ef_del_key(const char* key);
+bool flash_set_ir_code(const char* data_name, char* ir_data, unsigned short int data_len);
+int  flash_get_ir_code(const char* data_name, char* ir_data, unsigned short int data_len);
 #endif

@@ -20,12 +20,11 @@
 #define AT_CMD_DATA_SIZE_MAX 256
 #define AT_UART_NUM 0
 static TaskHandle_t atFunction_task;
-static cmd_callback_t AT_cmd_info_tab[];
 
 static uint8_t at_data[AT_CMD_DATA_SIZE_MAX];
 static uint16_t at_data_size = 0;
 static void hosal_uart_callback(void* p_arg);
-
+static bool uart_reading_data = false;
 void atCommandExecute(char* buff);
 
 static void hosal_uart_callback(void* p_arg)
@@ -35,15 +34,14 @@ static void hosal_uart_callback(void* p_arg)
     uint8_t data;
 
     int ch;
-
+    // uart_reading_data = true;
     while ((ch = bl_uart_data_recv(AT_UART_NUM)) >= 0) {
         data = (uint8_t)ch;
         at_data[at_data_size] = data;
         at_data_size++;
 
     }
-
-
+    // uart_reading_data = false;
 }
 
 int HAL_at_uart_send(char* buf, uint16_t size)
@@ -64,6 +62,7 @@ static void __uart_tx_irq(void* p_arg)
 
 static void atCommandHandleFunction(void* arg)
 {
+
     while (1)
     {
 
@@ -79,7 +78,7 @@ static void atCommandHandleFunction(void* arg)
         // blog_debug("%s", uart_ring_buffer);
         if ((at_data_size >= 4) && ('\r' == uart_ring_buffer[at_data_size-2]) && ('\n' == uart_ring_buffer[at_data_size-1]))
         {
-
+            printf("data=%s\r\n", uart_ring_buffer);
             uart_ring_buffer[at_data_size-2] = '\0';
             atCommandExecute((char*)uart_ring_buffer);
             memset(at_data, 0, AT_CMD_DATA_SIZE_MAX);
@@ -87,7 +86,10 @@ static void atCommandHandleFunction(void* arg)
             vTaskDelay(pdMS_TO_TICKS(50));
             blog_debug("HeapSize=%d ", xPortGetFreeHeapSize());
         }
-        else AT_RESPONSE(AT_ERR);
+        else {
+            vTaskDelay(pdMS_TO_TICKS(50));
+            continue;
+        }
         //处理完成，清空缓冲区内容，方便重新写入
         vTaskDelay(pdMS_TO_TICKS(50));
         at_data_size = 0;
@@ -139,11 +141,11 @@ void atCommandExecute(char* buff)
         if (cmdPoint!=NULL)
         {
             cmd_data_len = strlen(cmdPoint);
-            // blog_info("cmdPoint=%s", cmdPoint);
-            for (uint16_t num = 0; at_cmd_list[num].cmd != NULL; num++)
+            blog_info("cmdPoint=%s", cmdPoint);
+            for (uint16_t num = 0; at_cmd_list[num].cmd[0] != '\0'; num++)
             {
                 cmd_len = strlen(at_cmd_list[num].cmd);
-                if (!memcmp(cmdPoint, at_cmd_list[num].cmd, cmd_len)) {
+                if (!strncmp(cmdPoint, at_cmd_list[num].cmd, cmd_len)) {
 
                     if (containsChar(cmdPoint, '=')) {//识别为设置指令
                         if (at_cmd_list[num].set_func!=NULL)

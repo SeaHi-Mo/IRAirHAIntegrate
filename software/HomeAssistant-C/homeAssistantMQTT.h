@@ -33,8 +33,9 @@ typedef enum {
     HA_EVENT_MQTT_COMMAND_TEXT_VALUE,  //服务器下发text内容事件
 
     HA_EVENT_MQTT_COMMAND_CLIMATE_HVAC_POWER, //服务器下发的空调开关事件
-    HA_EVENT_MQTT_COMMAND_CLIMATE_HVAC_MODES,
-
+    HA_EVENT_MQTT_COMMAND_CLIMATE_HVAC_MODES, //设置模式
+    HA_EVENT_MQTT_COMMAND_CLIMATE_HVAC_TEMP,  //设置温度
+    HA_EVENT_MQTT_COMMAND_CLIMATE_HVAC_FAN_MODES,//设置风力  
     HA_EVENT_MQTT_ERROR,
 }ha_event_t;
 
@@ -476,6 +477,14 @@ typedef enum {
 
 }ac_modes_t;
 
+typedef enum {
+    AC_FAN_MODES_AUTO = 0,
+    // AC_MODES_OFF,
+    AC_FAN_MODES_LOW,
+    AC_FAN_MODES_MEDIUM,
+    AC_FAN_MODES_HIGH,
+}ac_fan_modes_trype_t;
+
 typedef  struct homeAssisatnt_entity_climateHVAC {
     char* action_template;
     char* action_topic;
@@ -498,6 +507,7 @@ typedef  struct homeAssisatnt_entity_climateHVAC {
     char* fan_mode_state_template;
     char* fan_mode_state_topic;
     char* fan_modes[4];
+    ac_fan_modes_trype_t fan_modes_type;
     //初始化温度设定
     float initial;  //设置初始目标温度。默认值取决于温度单位，为 21° 或 69.8°F。
     char* icon;
@@ -562,6 +572,7 @@ typedef  struct homeAssisatnt_entity_climateHVAC {
     char* temperature_state_template;
     char* temperature_state_topic;
     char* temperature_unit;
+    float temperature_value;
     float temp_step;
     char* unique_id;
     char* value_template;
