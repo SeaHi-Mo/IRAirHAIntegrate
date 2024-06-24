@@ -28,7 +28,6 @@ static void ir_buttom_task(void* asr)
             }
             //启动学习
             blog_debug("start learning ........");
-            ir_device_send_cmd(IR_DEVICE_CMD_SEND_FLASH_CODE_1);
         }
 
         if (!bl_gpio_input_get_value(IR_DEVICE_NET_COONFIG_BUTTON)) {
