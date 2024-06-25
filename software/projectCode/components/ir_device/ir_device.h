@@ -67,31 +67,6 @@ typedef enum {
     IR_DEVICE_CMD_GO_CODE_LEARN,      /* 进入外部存储编码学习 */
     IR_DEVICE_CMD_EXIT_CODE_LEARN,    /*  退出外部存储编码学习 */
     IR_DEVICE_CMD_SEND_MIDEA_CODE,         /*  发送外部编码 开启*/
-    // IR_DEVICE_CMD_SEND_MIDEA_CODE_OFF,         /*  发送外部编码  关闭*/
-    // IR_DEVICE_CMD_SEND_MIDEA_CODE_MODE_AUTO,   /*  发送外部编码  自动模式*/
-    // IR_DEVICE_CMD_SEND_MIDEA_CODE_MODE_COOL,   /*  发送外部编码  制冷*/
-    // IR_DEVICE_CMD_SEND_MIDEA_CODE_MODE_DRY,   /*  发送外部编码  除湿*/
-    // IR_DEVICE_CMD_SEND_MIDEA_CODE_MODE_HEAT,   /*  发送外部编码  制热*/
-    // IR_DEVICE_CMD_SEND_MIDEA_CODE_MODE_FAN_ONLY,   /*  发送外部编码  只送风*/
-    // IR_DEVICE_CMD_SEND_MIDEA_CODE_TEMP_17,
-    // IR_DEVICE_CMD_SEND_MIDEA_CODE_TEMP_18,
-    // IR_DEVICE_CMD_SEND_MIDEA_CODE_TEMP_19,
-    // IR_DEVICE_CMD_SEND_MIDEA_CODE_TEMP_20,
-    // IR_DEVICE_CMD_SEND_MIDEA_CODE_TEMP_21,
-    // IR_DEVICE_CMD_SEND_MIDEA_CODE_TEMP_22,
-    // IR_DEVICE_CMD_SEND_MIDEA_CODE_TEMP_23,
-    // IR_DEVICE_CMD_SEND_MIDEA_CODE_TEMP_24,
-    // IR_DEVICE_CMD_SEND_MIDEA_CODE_TEMP_25,
-    // IR_DEVICE_CMD_SEND_MIDEA_CODE_TEMP_26,
-    // IR_DEVICE_CMD_SEND_MIDEA_CODE_TEMP_27,
-    // IR_DEVICE_CMD_SEND_MIDEA_CODE_TEMP_28,
-    // IR_DEVICE_CMD_SEND_MIDEA_CODE_TEMP_29,
-    // IR_DEVICE_CMD_SEND_MIDEA_CODE_TEMP_30,
-    // IR_DEVICE_CMD_SEND_MIDEA_CODE_FAM_MODE_MUTE,
-    // IR_DEVICE_CMD_SEND_MIDEA_CODE_FAM_MODE_LOW,
-    // IR_DEVICE_CMD_SEND_MIDEA_CODE_FAM_MODE_MEDIUM,
-    // IR_DEVICE_CMD_SEND_MIDEA_CODE_FAM_MODE_HIGH,
-    // IR_DEVICE_CMD_SEND_MIDEA_CODE_FAM_MODE_AUTO,
 }ir_dev_cmd_t;
 
 typedef enum ir_dev_type {
@@ -108,6 +83,36 @@ typedef struct ir_dev {
     ac_dev_t* ac_dev;
     ir_dev_type_t ac_brand_type;
 }ir_dev_t;
+
+
 void ir_dvice_init(void);
+/**
+ * @brief 空调开关含描述
+ *
+ * @param ac_brand_type 空调的类型
+ * @param power_state 0 为关，1 为开
+*/
+void ir_codec_config_set_power(int ac_brand_type, int power_state);
+/**
+ * @brief 空调设置模式
+ *
+ * @param ac_brand_type
+ * @param modes_cnt
+*/
+void ir_codec_config_set_modes(int ac_brand_type, uint8_t modes_cnt);
+/**
+ * @brief 控制空调温度
+ *
+ * @param ac_brand_type 空调的类型
+ * @param temperature  温度值
+*/
 void ir_codec_config_set_temperature(int ac_brand_type, float temperature);
+/**
+ * @brief
+ *
+ * @param ac_brand_type
+ * @param modes_cnt
+*/
+void ir_codec_config_set_fan_modes(int ac_brand_type, uint8_t modes_cnt);
+
 #endif

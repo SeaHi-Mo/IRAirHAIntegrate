@@ -78,7 +78,7 @@ static void atCommandHandleFunction(void* arg)
         // blog_debug("%s", uart_ring_buffer);
         if ((at_data_size >= 4) && ('\r' == uart_ring_buffer[at_data_size-2]) && ('\n' == uart_ring_buffer[at_data_size-1]))
         {
-            printf("data=%s\r\n", uart_ring_buffer);
+            // printf("data=%s\r\n", uart_ring_buffer);
             uart_ring_buffer[at_data_size-2] = '\0';
             atCommandExecute((char*)uart_ring_buffer);
             memset(at_data, 0, AT_CMD_DATA_SIZE_MAX);

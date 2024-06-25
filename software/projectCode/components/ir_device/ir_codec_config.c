@@ -17,10 +17,16 @@
 
 ac_dev_t ac_dev[] = {
     {
+         .name = "Midea",
         .codec_fig = {4500,4500,550,1700,550,560,6,550,5200,1},
         .param.temp_data = {0,1,3,2,6,7,5,4,12,13,9,8,10,11,14},
-        .name = "Midea",
         .ir_data = {0xb2,0x4d,0xbf,0x40,0x40,0xbf},
+        .ir_data_off = {0xb2,0x4d,0x7b,0x84,0xe0,0x1f},
+        .param.fan_mode = AC_FAN_MODE_AUTO,
+        .param.fan_mode_data = {0B101,0B100,0B010,0B001,0b000}, //自动风，弱风，中风，强风,固定风
+        .param.modes_data = {0B10,0B00,0B11,0B01,0B01},//自动模式、制冷、制热，抽湿、送风
+        .param.modes = 0,
+        .param.temperature = 24.0,
         .ir_data_len = 6,
         .max_temp = 30.0,
         .min_temp = 17.0
@@ -116,92 +122,99 @@ ir_uint16_t ir_data_encode(ac_dev_t* ac_device)
     }
     if (ac_device->cmd_data.data==NULL) ac_device->cmd_data.data = data_buff;
     memset(ac_device->cmd_data.data, 0, IR_DATA_SIZE_MAX);
-    ir_uint16_t data_buff_len = 0;
+    ac_device->cmd_data.cmd_date_len = 0;
     //引导码
-    ac_device->cmd_data.data[data_buff_len] = ((ac_device->codec_fig.guided_code_low_time/8)%128)+128;
+    char* ir_data_buff = ac_device->ac_state?ac_device->ir_data:ac_device->ir_data_off;
 
-    data_buff_len++;
-    ac_device->cmd_data.data[data_buff_len] = (ac_device->codec_fig.guided_code_low_time/8)/128;
-    data_buff_len++;
-    ac_device->cmd_data.data[data_buff_len] = ((ac_device->codec_fig.guided_code_high_time/8)%128)+128;
-    data_buff_len++;
-    ac_device->cmd_data.data[data_buff_len] = (ac_device->codec_fig.guided_code_high_time/8)/128;
+    ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ((ac_device->codec_fig.guided_code_low_time/8)%128)+128;
+
+    ac_device->cmd_data.cmd_date_len++;
+    ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = (ac_device->codec_fig.guided_code_low_time/8)/128;
+    ac_device->cmd_data.cmd_date_len++;
+    ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ((ac_device->codec_fig.guided_code_high_time/8)%128)+128;
+    ac_device->cmd_data.cmd_date_len++;
+    ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = (ac_device->codec_fig.guided_code_high_time/8)/128;
+
     for (size_t i = 0;i<ac_device->ir_data_len; i++)
     {
 
         for (size_t j = 8; j >0; j--)
         {
             //识别1
-            data_buff_len++;
-            if ((ac_device->ir_data[i]>>(j-1)&0x01)) {
-                ac_device->cmd_data.data[data_buff_len] = ac_device->codec_fig.data_1_code_low_time/8;
-                data_buff_len++;
-                ac_device->cmd_data.data[data_buff_len] = (ac_device->codec_fig.data_1_code_high_time/8)%128+128;
+            ac_device->cmd_data.cmd_date_len++;
+            if ((ir_data_buff[i]>>(j-1)&0x01)) {
+                ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ac_device->codec_fig.data_1_code_low_time/8;
+                ac_device->cmd_data.cmd_date_len++;
+                ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = (ac_device->codec_fig.data_1_code_high_time/8)%128+128;
 
-                data_buff_len++;
-                ac_device->cmd_data.data[data_buff_len] = (ac_device->codec_fig.data_1_code_high_time/8)/128;
+                ac_device->cmd_data.cmd_date_len++;
+                ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = (ac_device->codec_fig.data_1_code_high_time/8)/128;
             }
             else
             {
-                ac_device->cmd_data.data[data_buff_len] = ac_device->codec_fig.data_0_code_low_time/8;
-                data_buff_len++;
-                ac_device->cmd_data.data[data_buff_len] = ac_device->codec_fig.data_0_code_high_time/8;
+                ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ac_device->codec_fig.data_0_code_low_time/8;
+                ac_device->cmd_data.cmd_date_len++;
+                ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ac_device->codec_fig.data_0_code_high_time/8;
             }
         }
     }
     //配置分隔码
-    data_buff_len++;
-
-    ac_device->cmd_data.data[data_buff_len] = ac_device->codec_fig.apart_code_low_time/8;
-    data_buff_len++;
-    ac_device->cmd_data.data[data_buff_len] = ((ac_device->codec_fig.apart_code_high_time/8)%128)+128;
-    data_buff_len++;
-    ac_device->cmd_data.data[data_buff_len] = (ac_device->codec_fig.apart_code_high_time/8)/128;
-    //再次生成引导码波形数据
-    data_buff_len++;
-    ac_device->cmd_data.data[data_buff_len] = ((ac_device->codec_fig.guided_code_low_time/8)%128)+128;
-    data_buff_len++;
-    ac_device->cmd_data.data[data_buff_len] = (ac_device->codec_fig.guided_code_low_time/8)/128;
-    data_buff_len++;
-    ac_device->cmd_data.data[data_buff_len] = ((ac_device->codec_fig.guided_code_high_time/8)%128)+128;
-    data_buff_len++;
-    ac_device->cmd_data.data[data_buff_len] = (ac_device->codec_fig.guided_code_high_time/8)/128;
-    // data_buff_len++;
-    //生成最后数据码的波形数据
-    for (size_t i = 0; i<ac_device->ir_data_len; i++)
-    {
-
-        for (size_t j = 8; j >0; j--)
+    if (ac_dev->codec_fig.apart_code_numble>0) {
+        for (size_t i = 0; i < ac_dev->codec_fig.apart_code_numble; i++)
         {
-            //识别1
-            data_buff_len++;
-            if ((ac_device->ir_data[i]>>(j-1)&0x01)) {
+            ac_device->cmd_data.cmd_date_len++;
 
-                ac_device->cmd_data.data[data_buff_len] = ac_device->codec_fig.data_1_code_low_time/8;
-                data_buff_len++;
-                ac_device->cmd_data.data[data_buff_len] = (((ac_device->codec_fig.data_1_code_high_time)/8)%128)+128;
-                data_buff_len++;
-                ac_device->cmd_data.data[data_buff_len] = ((ac_device->codec_fig.data_1_code_high_time)/8)/128;
-            }
-            else
+            ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ac_device->codec_fig.apart_code_low_time/8;
+            ac_device->cmd_data.cmd_date_len++;
+            ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ((ac_device->codec_fig.apart_code_high_time/8)%128)+128;
+            ac_device->cmd_data.cmd_date_len++;
+            ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = (ac_device->codec_fig.apart_code_high_time/8)/128;
+            ac_device->cmd_data.cmd_date_len++;
+            ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ((ac_device->codec_fig.guided_code_low_time/8)%128)+128;
+            ac_device->cmd_data.cmd_date_len++;
+            ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = (ac_device->codec_fig.guided_code_low_time/8)/128;
+            ac_device->cmd_data.cmd_date_len++;
+            ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ((ac_device->codec_fig.guided_code_high_time/8)%128)+128;
+            ac_device->cmd_data.cmd_date_len++;
+            ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = (ac_device->codec_fig.guided_code_high_time/8)/128;
+
+            //生成最后数据码的波形数据
+            for (size_t i = 0; i<ac_device->ir_data_len; i++)
             {
 
-                ac_device->cmd_data.data[data_buff_len] = ac_device->codec_fig.data_0_code_low_time/8;
+                for (size_t j = 8; j >0; j--)
+                {
+                    //识别1 
+                    ac_device->cmd_data.cmd_date_len++;
+                    if ((ir_data_buff[i]>>(j-1)&0x01)) {
 
-                data_buff_len++;
-                ac_device->cmd_data.data[data_buff_len] = ac_device->codec_fig.data_0_code_high_time/8;
+                        ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ac_device->codec_fig.data_1_code_low_time/8;
+                        ac_device->cmd_data.cmd_date_len++;
+                        ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = (((ac_device->codec_fig.data_1_code_high_time)/8)%128)+128;
+                        ac_device->cmd_data.cmd_date_len++;
+                        ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ((ac_device->codec_fig.data_1_code_high_time)/8)/128;
+                    }
+                    else
+                    {
+
+                        ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ac_device->codec_fig.data_0_code_low_time/8;
+
+                        ac_device->cmd_data.cmd_date_len++;
+                        ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ac_device->codec_fig.data_0_code_high_time/8;
+
+                    }
+
+                }
 
             }
-
         }
 
     }
-
-    data_buff_len++;
-    ac_device->cmd_data.data[data_buff_len] = ac_device->codec_fig.data_0_code_low_time/8;
-    data_buff_len++;
-
-    return data_buff_len;
+    //  ac_device->cmd_data.cmd_date_len++;
+    ac_device->cmd_data.cmd_date_len++;
+    ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ac_device->codec_fig.data_0_code_low_time/8;
+    ac_device->cmd_data.cmd_date_len++;
+    return  ac_device->cmd_data.cmd_date_len;
 }
 
 

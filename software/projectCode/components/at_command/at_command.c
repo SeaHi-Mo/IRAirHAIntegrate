@@ -148,7 +148,7 @@ static void at_wifi_test(char* cmd, uint16_t cmd_len)
 }
 /**
  * @brief AT指令配置MQTT服务器地址
- *          AT+HAMQTTCFG="host",port,[clientID],[username],[password]
+ *          AT+HAMQTTCFG="host",port
  * @param cmd
  * @param cmd_len
 */
@@ -161,7 +161,7 @@ static void at_ha_mqtt_config_set(char* cmd, uint16_t cmd_len)
     //识别参数数量
     int command_cnt = containsNChar(cmd, ',');
     //判断参数是否低于2个
-    if (command_cnt<2) {
+    if (command_cnt<2 && command_cnt>2) {
         AT_RESPONSE(AT_ERR);
         return;
     }
@@ -194,43 +194,7 @@ static void at_ha_mqtt_config_set(char* cmd, uint16_t cmd_len)
     memset(mqtt_info.mqtt_host, 0, sizeof(mqtt_info.mqtt_host));
     strcpy(mqtt_info.mqtt_host, cmd_list[0]);
     mqtt_info.port = atoi(cmd_list[1]);
-
-    if (command_cnt==2) {
-        if (mqtt_info.mqtt_clientID!=NULL) {
-            vPortFree(mqtt_info.mqtt_clientID);
-            mqtt_info.mqtt_clientID = NULL;
-        }
-        if (mqtt_info.mqtt_username!=NULL) {
-            vPortFree(mqtt_info.mqtt_username);
-            mqtt_info.mqtt_username = NULL;
-        }
-        if (mqtt_info.mqtt_password!=NULL) {
-            vPortFree(mqtt_info.mqtt_password);
-            mqtt_info.mqtt_password = NULL;
-        }
-    }
     //获取ClientID
-    if (command_cnt==3 || command_cnt==4 ||command_cnt==5) {
-
-        if (mqtt_info.mqtt_clientID==NULL)mqtt_info.mqtt_clientID = pvPortMalloc(128);
-        memset(mqtt_info.mqtt_clientID, 0, sizeof mqtt_info.mqtt_clientID);
-        strcpy(mqtt_info.mqtt_clientID, cmd_list[2]);
-    }
-    //userName
-    if (command_cnt==4 ||command_cnt==5) {
-
-        if (mqtt_info.mqtt_username==NULL)mqtt_info.mqtt_username = pvPortMalloc(64);
-        memset(mqtt_info.mqtt_username, 0, strlen(cmd_list[3]));
-        strcpy(mqtt_info.mqtt_username, cmd_list[3]);
-    }
-
-    //password
-    if (command_cnt==5) {
-
-        if (mqtt_info.mqtt_password==NULL)mqtt_info.mqtt_password = pvPortMalloc(64);
-        memset(mqtt_info.mqtt_password, 0, strlen(cmd_list[4]));
-        strcpy(mqtt_info.mqtt_password, cmd_list[4]);
-    }
 
     bool ret = flash_save_mqtt_info(&mqtt_info);
     if (!ret) {
@@ -248,27 +212,23 @@ static void at_ha_mqtt_config_check(char* cmd, uint16_t cmd_len)
         blog_error("parameter err \r\n");
         return;
     }
-    if (dev_msg.ha_dev==NULL) dev_msg.ha_dev = pvPortMalloc(sizeof(dev_msg.ha_dev));
-    flash_get_mqtt_info(&dev_msg.ha_dev->mqtt_info);
-    if (dev_msg.ha_dev->mqtt_info.mqtt_host!=NULL) {
+    // if (dev_msg.ha_dev==NULL) dev_msg.ha_dev = pvPortMalloc(sizeof(dev_msg.ha_dev));
+    ha_mqtt_info_t mqtt_info;
+    flash_get_mqtt_info(&mqtt_info);
+    if (mqtt_info.mqtt_host!=NULL) {
 
         char* str = pvPortMalloc(256);
         memset(str, 0, 256);
-        sprintf(str, "+HAMQTTCFG:%s,%d,<%s>,<%s>,<%s>\r\n", dev_msg.ha_dev->mqtt_info.mqtt_host, dev_msg.ha_dev->mqtt_info.port,
-        dev_msg.ha_dev->mqtt_info.mqtt_clientID==NULL?"null":dev_msg.ha_dev->mqtt_info.mqtt_clientID,
-        dev_msg.ha_dev->mqtt_info.mqtt_username==NULL?"null":dev_msg.ha_dev->mqtt_info.mqtt_username,
-        dev_msg.ha_dev->mqtt_info.mqtt_password==NULL?"null":dev_msg.ha_dev->mqtt_info.mqtt_password
-        );
-        AT_RESPONSE(str);
+        sprintf(str, "+HAMQTTCFG:%s,%d\r\n", mqtt_info.mqtt_host, mqtt_info.port);
 
+        AT_RESPONSE(str);
         vPortFree(str);
+        vPortFree(mqtt_info.mqtt_host);
     }
     else {
         AT_RESPONSE(AT_ERR);
-        vPortFree(dev_msg.ha_dev);
         return;
     }
-    vPortFree(dev_msg.ha_dev);
     AT_RESPONSE(AT_OK);
 }
 
@@ -342,14 +302,24 @@ static void at_ha_device_msg_check(char* cmd, uint16_t cmd_len)
         return;
     }
     homeAssisatnt_device_t ha_dev;
+    blog_debug("mark .......");
     int ret = flash_get_ha_device_msg(&ha_dev);
+
     if (ret!=-1)
     {
-        char* str = pvPortMalloc(256);
-        memset(str, 0, 256);
-        sprintf(str, "+HADEVICEMSGCFG:%s,%s\r\n", ha_dev.name, ha_dev.manufacturer);
-        AT_RESPONSE(str);
-        vPortFree(str);
+        if (ha_dev.name!=NULL&&(ha_dev.manufacturer!=NULL)) {
+            char* str = pvPortMalloc(256);
+            memset(str, 0, 256);
+            sprintf(str, "+HADEVICEMSGCFG:%s,%s\r\n", ha_dev.name, ha_dev.manufacturer);
+            AT_RESPONSE(str);
+            vPortFree(str);
+            vPortFree(ha_dev.name);
+            vPortFree(ha_dev.manufacturer);
+        }
+        else {
+            AT_RESPONSE(AT_ERR);
+        }
+
     }
     else {
         AT_RESPONSE(AT_ERR);

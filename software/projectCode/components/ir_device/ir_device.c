@@ -18,6 +18,8 @@
 
 #define IR_UART_NUM 1
 
+BLOG_DECLARE(ir_device);
+
 static bool uart_get_status = false;
 static dev_cmd_t ir_uart_read_data;
 static dev_cmd_t ir_cmd;
@@ -176,6 +178,7 @@ static void hosal_uart_callback(void* p_arg)
             ir_uart_read_data.cmd_date_len++;
         }
     }
+
 }
 
 
@@ -207,6 +210,7 @@ static void ir_data_ring_task(void* arg)
             continue;
         }
         uart_get_status = false;
+        blog_debug_hexdump("uart_data", (uint8_t*)ir_uart_read_data.data, 8);
     }
 }
 
@@ -243,12 +247,14 @@ void ir_codec_config_set_temperature(int ac_brand_type, float temperature)
     ir_dev.ac_dev = &ac_dev[ac_brand_type];
 
     if (temperature < ir_dev.ac_dev->min_temp&& temperature>ir_dev.ac_dev->max_temp) {
-        printf("[%s:%d] temperature =%.2f < %.2f or >%.2f\r\n", __func__, __LINE__, temperature, ir_dev.ac_dev->min_temp, ir_dev.ac_dev->max_temp);
+
+        blog_error("temperature = %.2f < %.2f or >%.2f", temperature, ir_dev.ac_dev->min_temp, ir_dev.ac_dev->max_temp);
+        ir_dev.ac_dev = NULL;
         return;
     }
     // ac_dev[ac_brand_type].param.temperature = temperature;
     ir_dev.ac_dev->param.temperature = temperature;
-    blog_debug("mark %d..........", ac_brand_type);
+
     memset(ir_data, 0, 16);
 
     switch (ac_brand_type)
@@ -275,11 +281,132 @@ void ir_codec_config_set_temperature(int ac_brand_type, float temperature)
     //创建出波形数据
     blog_debug("ir data=%02x %02x %02x %02x %02x %02x ", ir_dev.ac_dev->ir_data[0], ir_dev.ac_dev->ir_data[1], ir_dev.ac_dev->ir_data[2], ir_dev.ac_dev->ir_data[3], ir_dev.ac_dev->ir_data[4], ir_dev.ac_dev->ir_data[5]);
     ir_dev.ac_dev->cmd_data.cmd_date_len = ir_data_encode(ir_dev.ac_dev);
-    //把波形数据进行整合
     dev_cmd_t* ir_cmd_data = create_ir_cmd(ac_brand_type, IR_DEVICE_CMD_SEND_MIDEA_CODE);
-    //发送给芯片
+    if (ir_dev.ac_dev->ac_state)
+        HAL_at_uart_send(ir_cmd_data->data, ir_cmd_data->cmd_date_len);
 
+    ir_dev.ac_dev = NULL;
+}
+
+void ir_codec_config_set_power(int ac_brand_type, int power_state)
+{
+    ir_dev.ac_dev = &ac_dev[ac_brand_type];
+    switch (ac_brand_type)
+    {
+        //美的空调的数据
+        case 0:
+        {
+            ir_dev.ac_dev->ir_data_len = 6;
+            if (!power_state) {
+                ir_dev.ac_dev->ac_state = 0;
+            }
+            else {
+                ir_dev.ac_dev->ac_state = 1;
+            }
+        }
+        break;
+
+        default:
+            break;
+    }
+    //创建出波形数据
+    blog_debug("ir data=%02x %02x %02x %02x %02x %02x ", ir_dev.ac_dev->ir_data[0], ir_dev.ac_dev->ir_data[1], ir_dev.ac_dev->ir_data[2], ir_dev.ac_dev->ir_data[3], ir_dev.ac_dev->ir_data[4], ir_dev.ac_dev->ir_data[5]);
+    ir_dev.ac_dev->cmd_data.cmd_date_len = ir_data_encode(ir_dev.ac_dev);
+    dev_cmd_t* ir_cmd_data = create_ir_cmd(ac_brand_type, IR_DEVICE_CMD_SEND_MIDEA_CODE);
     HAL_at_uart_send(ir_cmd_data->data, ir_cmd_data->cmd_date_len);
 
-    // vPortFree(ir_cmd_data->data);
+    ir_dev.ac_dev = NULL;
+}
+
+void ir_codec_config_set_modes(int ac_brand_type, uint8_t modes_cnt)
+{
+    ir_dev.ac_dev = &ac_dev[ac_brand_type];
+    ir_dev.ac_dev->param.modes = modes_cnt;
+    if (ir_dev.ac_dev->param.modes>6) {
+
+        blog_error("modes = %d ,There is no preset mode for this", ir_dev.ac_dev->param.modes);
+        ir_dev.ac_dev = NULL;
+        return;
+    }
+
+    ir_dev.ac_dev->ac_state = 1;
+
+    ir_dev.ac_dev->ir_data_len = 6;
+
+    ir_uint8_t _temp_hex = ir_dev.ac_dev->param.modes_data[ir_dev.ac_dev->param.modes];
+    if (ir_dev.ac_dev->param.modes==AC_MODES_AUTO||ir_dev.ac_dev->param.modes==AC_MODES_DRY) {
+
+        ir_dev.ac_dev->param.fan_mode = AC_FAN_MODE_FIXED;
+        uint8_t fam_data = ir_dev.ac_dev->param.fan_mode_data[(uint8_t)(ir_dev.ac_dev->param.fan_mode)];
+        fam_data <<= 4;
+        ir_dev.ac_dev->ir_data[2] = 0x1f;
+        ir_dev.ac_dev->ir_data[2] += fam_data;
+        ir_dev.ac_dev->ir_data[3] = ir_dev.ac_dev->ir_data[2]^0xff;
+    }
+    else if (ir_dev.ac_dev->param.modes==AC_MODES_COOL||ir_dev.ac_dev->param.modes==AC_MODES_HEAT) {
+        ir_dev.ac_dev->param.fan_mode = AC_FAN_MODE_AUTO;
+        uint8_t fam_data = ir_dev.ac_dev->param.fan_mode_data[(uint8_t)(ir_dev.ac_dev->param.fan_mode)];
+        fam_data <<= 4;
+        ir_dev.ac_dev->ir_data[2] = ir_dev.ac_dev->ir_data[2]& 0x1f;
+        ir_dev.ac_dev->ir_data[2] += fam_data;
+        ir_dev.ac_dev->ir_data[3] = ir_dev.ac_dev->ir_data[2]^0xff;
+    }
+
+    if (ir_dev.ac_dev->param.modes==AC_MODES_FAN_ONLY)ir_dev.ac_dev->ir_data[4] = 0B11100000;
+    else {
+
+        ir_uint8_t temp = 0;
+        temp = ir_dev.ac_dev->param.temp_data[(uint8_t)(ir_dev.ac_dev->param.temperature-ir_dev.ac_dev->min_temp)];
+        temp <<= 4;
+        ir_dev.ac_dev->ir_data[4] = ir_dev.ac_dev->ir_data[4]&0x0f;
+        ir_dev.ac_dev->ir_data[4] += temp;
+    }
+    _temp_hex <<= 2;
+    ir_dev.ac_dev->ir_data[4] = ir_dev.ac_dev->ir_data[4]&0xf0;
+    ir_dev.ac_dev->ir_data[4] += _temp_hex;
+    ir_dev.ac_dev->ir_data[5] = ir_dev.ac_dev->ir_data[4]^0xff;
+
+    //创建出波形数据
+    blog_debug("ir data=%02x %02x %02x %02x %02x %02x ", ir_dev.ac_dev->ir_data[0], ir_dev.ac_dev->ir_data[1], ir_dev.ac_dev->ir_data[2], ir_dev.ac_dev->ir_data[3], ir_dev.ac_dev->ir_data[4], ir_dev.ac_dev->ir_data[5]);
+    ir_dev.ac_dev->cmd_data.cmd_date_len = ir_data_encode(ir_dev.ac_dev);
+    dev_cmd_t* ir_cmd_data = create_ir_cmd(ac_brand_type, IR_DEVICE_CMD_SEND_MIDEA_CODE);
+    if (ir_dev.ac_dev->ac_state)
+        HAL_at_uart_send(ir_cmd_data->data, ir_cmd_data->cmd_date_len);
+
+    ir_dev.ac_dev = NULL;
+}
+
+void ir_codec_config_set_fan_modes(int ac_brand_type, uint8_t modes_cnt)
+{
+    if (modes_cnt>AC_FAN_MODE_MAX)
+    {
+        blog_error("fan modes = %d ,There is no preset mode for this", modes_cnt);
+        return;
+    }
+    ir_dev.ac_dev = &ac_dev[ac_brand_type];
+    ir_dev.ac_dev->param.fan_mode = modes_cnt;
+    if (ir_dev.ac_dev->ac_state) {
+
+        ir_dev.ac_dev->ir_data_len = 6;
+        if (ir_dev.ac_dev->param.modes==AC_MODES_DRY||ir_dev.ac_dev->param.modes==AC_MODES_AUTO) {
+            ir_dev.ac_dev->param.fan_mode = AC_FAN_MODE_FIXED;
+            blog_error("ac mode=%d,fan_mode only =%d", ir_dev.ac_dev->param.modes, ir_dev.ac_dev->param.fan_mode);
+        }
+        else if (ir_dev.ac_dev->param.modes==AC_MODES_COOL||ir_dev.ac_dev->param.modes==AC_MODES_HEAT) {
+            ir_dev.ac_dev->param.fan_mode = AC_FAN_MODE_AUTO;
+            blog_error("ac mode=%d,fan_mode only =%d", ir_dev.ac_dev->param.modes, ir_dev.ac_dev->param.fan_mode);
+        }
+        uint8_t fam_data = ir_dev.ac_dev->param.fan_mode_data[(uint8_t)(ir_dev.ac_dev->param.fan_mode)];
+        fam_data <<= 5;
+        ir_dev.ac_dev->ir_data[2] = ir_dev.ac_dev->ir_data[2]& 0x1f;
+        ir_dev.ac_dev->ir_data[2] += fam_data;
+        blog_debug("fam_data =%02x", ir_dev.ac_dev->ir_data[2]);
+        ir_dev.ac_dev->ir_data[3] = ir_dev.ac_dev->ir_data[2]^0xff;
+        //创建出波形数据
+        blog_debug("ir data=%02x %02x %02x %02x %02x %02x ", ir_dev.ac_dev->ir_data[0], ir_dev.ac_dev->ir_data[1], ir_dev.ac_dev->ir_data[2], ir_dev.ac_dev->ir_data[3], ir_dev.ac_dev->ir_data[4], ir_dev.ac_dev->ir_data[5]);
+        ir_dev.ac_dev->cmd_data.cmd_date_len = ir_data_encode(ir_dev.ac_dev);
+        dev_cmd_t* ir_cmd_data = create_ir_cmd(ac_brand_type, IR_DEVICE_CMD_SEND_MIDEA_CODE);
+        HAL_at_uart_send(ir_cmd_data->data, ir_cmd_data->cmd_date_len);
+    }
+    ir_dev.ac_dev = NULL;
 }

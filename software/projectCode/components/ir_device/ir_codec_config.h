@@ -37,14 +37,17 @@ typedef struct dev_cmd_list {
     ir_int16_t cmd_date_len; //数据长度
 }dev_cmd_t;
 
-
 typedef enum {
     AC_FAN_MODE_NONE = 0,
     AC_FAN_MODE_AUTO,
     AC_FAN_MODE_LOW,
     AC_FAN_MODE_MEDIUNM,
     AC_FAN_MODE_HIGH,
+    AC_FAN_MODE_FIXED,
+    AC_FAN_MODE_MAX,
 }ac_fan_mode_t;
+
+
 /**
  * @brief
  *
@@ -53,7 +56,9 @@ typedef struct ac_param
 {
     float temperature;  //空调温度控制
     ir_uint8_t modes;        //空调运行模式
+    ir_uint8_t modes_data[6];      //空调运行模式数据
     ac_fan_mode_t fan_mode;     //送风模式
+    ir_uint8_t fan_mode_data[6];
     ir_uint8_t timer;        //定时
     ir_uint8_t temp_data[32];//温度代码
 }ac_param_t;
@@ -64,7 +69,9 @@ typedef struct ac_device {
     ir_codec_cfg_t codec_fig;//波形信息参数配置
     float min_temp;       // 可设置的温度下限
     float max_temp;       //可设置的温度上限
-    char ir_data[16];       //空调的红外码
+    char ir_data[8];       //空调的红外码
+    char ir_data_off[8];   //空调固定的关闭码
+    ir_uint8_t ac_state;
     ir_uint8_t ir_data_len;
     char* name;          //空调厂家名称
 }ac_dev_t;
