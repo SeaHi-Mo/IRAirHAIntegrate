@@ -120,7 +120,7 @@ static void device_state_task(void* arg)
 
                 blog_info("<<<<<<<<<<<<<<<  DEVICE_STATE_HOMEASSISTANT_AC_MODE %d", ha_ac1->modes_type);
                 ir_codec_config_set_modes(IR_DEVICE_TYPE_AC_BRAND_MIDEA, ha_ac1->modes_type);
-
+                flash_save_new_ac_mode(ha_ac1->modes_type);
             }
             break;
             case  DEVICE_STATE_HOMEASSISTANT_AC_TEMP:
@@ -129,6 +129,7 @@ static void device_state_task(void* arg)
                 blog_info("<<<<<<<<<<<<<<<  DEVICE_STATE_HOMEASSISTANT_AC_TEMP %.1f", ha_ac1->temperature_value);
 
                 ir_codec_config_set_temperature(IR_DEVICE_TYPE_AC_BRAND_MIDEA, ha_ac1->temperature_value);
+                flash_save_new_temp(ha_ac1->temperature_value);
             }
             break;
             case DEVICE_STATE_HOMEASSISTANT_AC_FAN_MODE:

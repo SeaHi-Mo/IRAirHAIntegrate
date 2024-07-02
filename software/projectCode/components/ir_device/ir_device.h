@@ -72,8 +72,8 @@ typedef enum {
 typedef enum ir_dev_type {
     IR_DEVICE_TYPE_NONE = -1,
     IR_DEVICE_TYPE_AC_BRAND_MIDEA = 0, //美的空调
-    IR_DEVICE_TYPE_AC_BRAND_GREE,      //格力空调
     IR_DEVICE_TYPE_AC_BRAND_TCL,       //TCL 空调
+    IR_DEVICE_TYPE_AC_BRAND_GREE,      //格力空调
     IR_DEVICE_TYPE_AC_BRAND_TYPE_HAIER,     //海尔空调
 }ir_dev_type_t;
 
@@ -86,6 +86,12 @@ typedef struct ir_dev {
 
 
 void ir_dvice_init(void);
+
+/**
+ * @brief 启动学习功能
+ *
+*/
+void ir_codec_start_learn(void);
 /**
  * @brief 空调开关含描述
  *

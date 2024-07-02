@@ -69,8 +69,8 @@ typedef struct ac_device {
     ir_codec_cfg_t codec_fig;//波形信息参数配置
     float min_temp;       // 可设置的温度下限
     float max_temp;       //可设置的温度上限
-    char ir_data[8];       //空调的红外码
-    char ir_data_off[8];   //空调固定的关闭码
+    char ir_data[16];       //空调的红外码
+    char ir_data_off[16];   //空调固定的关闭码
     ir_uint8_t ac_state;
     ir_uint8_t ir_data_len;
     char* name;          //空调厂家名称

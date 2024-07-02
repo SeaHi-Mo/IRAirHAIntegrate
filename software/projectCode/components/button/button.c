@@ -28,6 +28,7 @@ static void ir_buttom_task(void* asr)
             }
             //启动学习
             blog_debug("start learning ........");
+            ir_codec_start_learn();
         }
 
         if (!bl_gpio_input_get_value(IR_DEVICE_NET_COONFIG_BUTTON)) {
@@ -35,7 +36,7 @@ static void ir_buttom_task(void* asr)
             {
                 vTaskDelay(pdMS_TO_TICKS(30));
             }
-            //启动学习
+            //启动配网
             blog_debug("start netconfig ........");
         }
         vTaskDelay(pdMS_TO_TICKS(50));

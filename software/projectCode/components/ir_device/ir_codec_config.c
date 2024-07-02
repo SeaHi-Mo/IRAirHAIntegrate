@@ -13,7 +13,7 @@
 #include "string.h"
 #include "ir_codec_config.h"
 
-#define IR_DATA_SIZE_MAX 256
+#define IR_DATA_SIZE_MAX 512
 
 ac_dev_t ac_dev[] = {
     {
@@ -31,6 +31,17 @@ ac_dev_t ac_dev[] = {
         .max_temp = 30.0,
         .min_temp = 17.0
     },
+    {
+        .name = "TCL",
+        .codec_fig = {3100,1600,480,1000,480,374,14,0,0,0},
+        .ir_data = {0xc4,0xd3,0x64,0x80,0x00,0x24,0xc0,0x10,0x1c,0x0,0x0,0x0,0x0,0x3e}, //默认开机码,制冷模式 风速自动 风向自动 温度23
+        .ir_data_len = 14,
+        .ir_data_off = {0xc4,0xd3,0x64,0x80,0x00,0x04,0x80,0xb0,0x1c,0x0,0x0,0x0,0x0,0xde}, //固定的关机代码
+        .param.temperature = 23.0,
+        .param.modes = 1,
+        .max_temp = 30.0,
+        .min_temp = 16.0,
+    },
 };
 
 static volatile  char data_buff[IR_DATA_SIZE_MAX] = { 0 };
@@ -43,6 +54,7 @@ static volatile  char data_buff[IR_DATA_SIZE_MAX] = { 0 };
 */
 char* ir_data_decode(char* ir_data, ir_uint16_t ir_data_len, ir_codec_cfg_t* decode_config)
 {
+# if 0
     if (ir_data==NULL || decode_config==NULL) {
         printf("%s %dparams is NULL\r\n", __func__, __LINE__);
         return NULL;
@@ -105,7 +117,9 @@ char* ir_data_decode(char* ir_data, ir_uint16_t ir_data_len, ir_codec_cfg_t* dec
             }
         }
     }
+#endif
     return data_buff;
+
 }
 /**
  * @brief

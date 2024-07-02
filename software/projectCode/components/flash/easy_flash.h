@@ -35,4 +35,8 @@ int flash_get_ha_device_msg(void* value);
 bool ef_del_key(const char* key);
 bool flash_set_ir_code(const char* data_name, char* ir_data, unsigned short int data_len);
 int  flash_get_ir_code(const char* data_name, char* ir_data, unsigned short int data_len);
+bool flash_save_new_temp(float temperature);
+float flash_get_temperature(void);
+bool flash_save_new_ac_mode(uint8_t modes);
+int flash_get_ac_mode(void);
 #endif

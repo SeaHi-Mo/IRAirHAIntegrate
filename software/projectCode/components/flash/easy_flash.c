@@ -18,6 +18,7 @@
 #include "device_state.h"
 
 static char* flash_key[] = { "ssid","pass","pmk","band","chan_id","mqtt_host","mqtt_port","mqtt_clientID","mqtt_username","mqtt_password","ha_name","ha_manufacturer" };
+static char* ac_flash_key[] = { "temp","mode" };
 
 static bool ef_set_bytes(const char* key, char* value, int len) {
     int result = ef_set_env_blob(key, value, len);
@@ -138,44 +139,7 @@ int flash_get_mqtt_info(void* value)
         return -1;
     }
     memset(flash_data, 0, 128);
-    result = ef_get_bytes(flash_key[FLASH_MQTT_CLIENT_ID], flash_data, 128);
-    if (result) {
-        mqtt_info->mqtt_clientID = pvPortMalloc(128);
-        memset(mqtt_info->mqtt_clientID, 0, 128);
-        strcpy(mqtt_info->mqtt_clientID, flash_data);
-        // mqtt_info->mqtt_clientID[result] = '\0';
-    }
-    else {
-        vPortFree(flash_data);
-        return -1;
-    }
-    memset(flash_data, 0, 128);
 
-    result = ef_get_bytes(flash_key[FLASH_MQTT_USERNAME], flash_data, 128);
-    if (result) {
-        mqtt_info->mqtt_username = pvPortMalloc(64);
-        memset(mqtt_info->mqtt_username, 0, 64);
-        strcpy(mqtt_info->mqtt_username, flash_data);
-        // mqtt_info->mqtt_username[result] = '\0';
-    }
-    else {
-        vPortFree(flash_data);
-        return -1;
-    }
-    memset(flash_data, 0, 128);
-
-    result = ef_get_bytes(flash_key[FLASH_MQTT_PASSWORD], flash_data, 128);
-    if (result) {
-        mqtt_info->mqtt_password = pvPortMalloc(64);
-        memset(mqtt_info->mqtt_password, 0, 64);
-        strcpy(mqtt_info->mqtt_password, flash_data);
-        // mqtt_info->mqtt_password[result] = '\0';
-    }
-    else {
-        vPortFree(flash_data);
-        return -1;
-    }
-    memset(flash_data, 0, 128);
     vPortFree(flash_data);
     return result;
 }
@@ -254,4 +218,56 @@ bool flash_set_ir_code(const char* data_name, char* ir_data, unsigned short int 
 int flash_get_ir_code(const char* data_name, char* ir_data, unsigned short int data_len)
 {
     return ef_get_bytes(data_name, ir_data, data_len);
+}
+
+bool flash_save_new_temp(float temperature)
+{
+    char* temp_str = pvPortMalloc(2);
+    memset(temp_str, 0, 2);
+    sprintf(temp_str, "%.0f", temperature);
+    bool ret = ef_set_bytes(ac_flash_key[0], temp_str, 2);
+    vPortFree(temp_str);
+    return ret;
+}
+
+float flash_get_temperature(void)
+{
+    char* temp = pvPortMalloc(2);
+    float temperature = 0.0;
+    memset(temp, 0, 2);
+    ef_get_bytes(ac_flash_key[0], temp, 2);
+    if ((temp[0]>='0'&&temp[0]<='9')&& (temp[1]>='0'&&temp[1]<='9')) {
+        temperature = atof(temp);
+    }
+    else  temperature = 0.0;
+
+    vPortFree(temp);
+    return temperature;
+}
+
+bool flash_save_new_ac_mode(uint8_t modes)
+{
+    char* modes_str = pvPortMalloc(2);
+    memset(modes_str, 0, 1);
+    sprintf(modes_str, "%d", modes);
+
+    bool ret = ef_get_bytes(ac_flash_key[1], modes_str, 2);
+
+    vPortFree(modes_str);
+    return ret;
+}
+
+int flash_get_ac_mode(void)
+{
+    int mode = 0;
+    char* modes_str = pvPortMalloc(1);
+    memset(modes_str, 0, 1);
+    ef_get_bytes(ac_flash_key[1], modes_str, 1);
+    if (*modes_str>='0'&& *modes_str<='9') {
+        mode = atoi(modes_str);
+    }
+    else mode = 0;
+
+    vPortFree(modes_str);
+    return mode;
 }

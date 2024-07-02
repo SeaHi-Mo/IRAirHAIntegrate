@@ -23,7 +23,7 @@ void ha_event_cb(ha_event_t event, homeAssisatnt_device_t* dev)
         case HA_EVENT_MQTT_CONNECED:
             HA_LOG_I("<<<<<<<<<<  HA_EVENT_MQTT_CONNECED\r\n");
             static ha_climateHVAC_t AC1 = {
-                .name = "美的空调1231",
+                .name = "美的空调",
                 .unique_id = "AC_1",
                 .max_temp = 30.0,
                 .min_temp = 17.0,

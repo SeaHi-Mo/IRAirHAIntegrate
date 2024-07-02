@@ -27,10 +27,12 @@ static char ir_data[16] = { 0 };
 
 static ir_dev_t ir_dev;
 
+extern char tcl_ir_code[][16];
+
 static dev_cmd_t* create_ir_cmd(ir_dev_type_t ir_dev_type, ir_dev_cmd_t ir_dev_cmd)
 {
     dev_cmd_t* ir_cmd_data = &ir_cmd;
-    ir_dev.ac_dev = &ac_dev[ir_dev_type];
+
 
     if (ir_cmd_data->data==NULL)
     {
@@ -117,8 +119,72 @@ static dev_cmd_t* create_ir_cmd(ir_dev_type_t ir_dev_type, ir_dev_cmd_t ir_dev_c
             ir_cmd_data->data[7] = IR_DEVICE_DATA_END;
         }
         break;
+        case IR_DEVICE_CMD_SEND_FLASH_CODE_2:
+        {
+            ir_cmd_data->data[2] = 0x00;
+            ir_cmd_data->data[4] = IR_CMD_SEND_IN_CODE_BYTE;
+            ir_cmd_data->data[5] = 0x01;
+            ir_cmd_data->data[6] = (ir_cmd_data->data[3]+  ir_cmd_data->data[4]+ ir_cmd_data->data[5])%256;
+            ir_cmd_data->data[7] = IR_DEVICE_DATA_END;
+        }
+        break;
+        case IR_DEVICE_CMD_SEND_FLASH_CODE_3:
+        {
+            ir_cmd_data->data[2] = 0x00;
+            ir_cmd_data->data[4] = IR_CMD_SEND_IN_CODE_BYTE;
+            ir_cmd_data->data[5] = 0x02;
+            ir_cmd_data->data[6] = (ir_cmd_data->data[3]+  ir_cmd_data->data[4]+ ir_cmd_data->data[5])%256;
+            ir_cmd_data->data[7] = IR_DEVICE_DATA_END;
+        }
+        break;
+        case IR_DEVICE_CMD_SEND_FLASH_CODE_4:
+        {
+            ir_cmd_data->data[2] = 0x00;
+            ir_cmd_data->data[4] = IR_CMD_SEND_IN_CODE_BYTE;
+            ir_cmd_data->data[5] = 0x03;
+            ir_cmd_data->data[6] = (ir_cmd_data->data[3]+  ir_cmd_data->data[4]+ ir_cmd_data->data[5])%256;
+            ir_cmd_data->data[7] = IR_DEVICE_DATA_END;
+        }
+        break;
+        case IR_DEVICE_CMD_SEND_FLASH_CODE_5:
+        {
+            ir_cmd_data->data[2] = 0x00;
+            ir_cmd_data->data[4] = IR_CMD_SEND_IN_CODE_BYTE;
+            ir_cmd_data->data[5] = 0x04;
+            ir_cmd_data->data[6] = (ir_cmd_data->data[3]+  ir_cmd_data->data[4]+ ir_cmd_data->data[5])%256;
+            ir_cmd_data->data[7] = IR_DEVICE_DATA_END;
+        }
+        break;
+        case IR_DEVICE_CMD_SEND_FLASH_CODE_6:
+        {
+            ir_cmd_data->data[2] = 0x00;
+            ir_cmd_data->data[4] = IR_CMD_SEND_IN_CODE_BYTE;
+            ir_cmd_data->data[5] = 0x05;
+            ir_cmd_data->data[6] = (ir_cmd_data->data[3]+  ir_cmd_data->data[4]+ ir_cmd_data->data[5])%256;
+            ir_cmd_data->data[7] = IR_DEVICE_DATA_END;
+        }
+        break;
+        case IR_DEVICE_CMD_SEND_FLASH_CODE_7:
+        {
+            ir_cmd_data->data[2] = 0x00;
+            ir_cmd_data->data[4] = IR_CMD_SEND_IN_CODE_BYTE;
+            ir_cmd_data->data[5] = 0x06;
+            ir_cmd_data->data[6] = (ir_cmd_data->data[3]+  ir_cmd_data->data[4]+ ir_cmd_data->data[5])%256;
+            ir_cmd_data->data[7] = IR_DEVICE_DATA_END;
+        }
+        break;
+        case IR_DEVICE_CMD_GO_CODE_LEARN:
+        {
+            ir_cmd_data->data[2] = 0x00;
+            ir_cmd_data->data[4] = IR_CMD_GOTO_LEARN_CODE_BYTE;
+            ir_cmd_data->data[5] = 0x00;
+            ir_cmd_data->data[6] = (ir_cmd_data->data[3]+  ir_cmd_data->data[4]+ ir_cmd_data->data[5])%256;
+            ir_cmd_data->data[7] = IR_DEVICE_DATA_END;
+        }
+        break;
         case IR_DEVICE_CMD_SEND_MIDEA_CODE:
         {
+            ir_dev.ac_dev = &ac_dev[ir_dev_type];
             ir_cmd_data->data[2] = 0x00;
             ir_cmd_data->data[4] = IR_CMD_SEND_LEARN_CODE_BYTE;
             uint16_t _data_sum = ir_cmd_data->data[3]+ ir_cmd_data->data[4];
@@ -210,7 +276,7 @@ static void ir_data_ring_task(void* arg)
             continue;
         }
         uart_get_status = false;
-        blog_debug_hexdump("uart_data", (uint8_t*)ir_uart_read_data.data, 8);
+        blog_debug_hexdump("uart_data", (uint8_t*)ir_uart_read_data.data, ir_uart_read_data.cmd_date_len);
     }
 }
 
@@ -239,7 +305,24 @@ void ir_dvice_init(void)
     // flash_set_ir_code("ir_on", midea[0].cmd_data, midea[0].cmd_date_len);
     xTaskCreate(ir_data_ring_task, "ir task", 1024, NULL, 8, NULL);
 
+    ac_dev[0].param.modes = flash_get_ac_mode();
+    ac_dev[1].param.modes = flash_get_ac_mode();
+
+    ac_dev[0].param.temperature = flash_get_temperature();
+    if (ac_dev[0].param.temperature ==0.0) {
+        ac_dev[0].param.temperature = 25.0;
+    }
+    ac_dev[1].param.temperature = flash_get_temperature();
+    if (ac_dev[1].param.temperature ==0.0) {
+        ac_dev[1].param.temperature = 25.0;
+    }
     blog_info("ir device statrt......");
+}
+
+void ir_codec_start_learn(void)
+{
+    dev_cmd_t* start_code = create_ir_cmd(IR_DEVICE_TYPE_NONE, IR_DEVICE_CMD_GO_CODE_LEARN);
+    HAL_at_uart_send(start_code->data, start_code->cmd_date_len);
 }
 
 void ir_codec_config_set_temperature(int ac_brand_type, float temperature)
@@ -260,9 +343,8 @@ void ir_codec_config_set_temperature(int ac_brand_type, float temperature)
     switch (ac_brand_type)
     {
         //美的空调的数据
-        case 0:
+        case IR_DEVICE_TYPE_AC_BRAND_MIDEA:
         {
-            ir_dev.ac_dev->ir_data_len = 6;
             ir_uint8_t temp_hex = 0;
             ir_uint8_t _temp_hex = (ir_uint8_t)ir_dev.ac_dev->param.temperature-ir_dev.ac_dev->min_temp;
 
@@ -272,14 +354,27 @@ void ir_codec_config_set_temperature(int ac_brand_type, float temperature)
             ir_dev.ac_dev->ir_data[4] = ir_dev.ac_dev->ir_data[4]&0x0f;
             ir_dev.ac_dev->ir_data[4] += temp_hex;
             ir_dev.ac_dev->ir_data[5] = ir_dev.ac_dev->ir_data[4]^0xff;
+            blog_debug_hexdump("Midea CODE", (uint8_t*)ir_dev.ac_dev->ir_data, ir_dev.ac_dev->ir_data_len);
         }
         break;
-
+        case  IR_DEVICE_TYPE_AC_BRAND_TCL:
+        {
+            //制冷模式下的调温
+            if (ir_dev.ac_dev->param.modes==AC_MODES_COOL) {
+                memcpy(ir_dev.ac_dev->ir_data, tcl_ir_code[(uint8_t)(ir_dev.ac_dev->param.temperature-ir_dev.ac_dev->min_temp)], ir_dev.ac_dev->ir_data_len);
+            }
+            else if (ir_dev.ac_dev->param.modes==AC_MODES_HEAT) {
+                //制热模式下的调温
+                memcpy(ir_dev.ac_dev->ir_data, tcl_ir_code[(uint8_t)(ir_dev.ac_dev->param.temperature-ir_dev.ac_dev->min_temp)+15], ir_dev.ac_dev->ir_data_len);
+            }
+            blog_debug_hexdump("TCL CODE", (uint8_t*)ir_dev.ac_dev->ir_data, ir_dev.ac_dev->ir_data_len);
+        }
+        break;
         default:
             break;
     }
     //创建出波形数据
-    blog_debug("ir data=%02x %02x %02x %02x %02x %02x ", ir_dev.ac_dev->ir_data[0], ir_dev.ac_dev->ir_data[1], ir_dev.ac_dev->ir_data[2], ir_dev.ac_dev->ir_data[3], ir_dev.ac_dev->ir_data[4], ir_dev.ac_dev->ir_data[5]);
+
     ir_dev.ac_dev->cmd_data.cmd_date_len = ir_data_encode(ir_dev.ac_dev);
     dev_cmd_t* ir_cmd_data = create_ir_cmd(ac_brand_type, IR_DEVICE_CMD_SEND_MIDEA_CODE);
     if (ir_dev.ac_dev->ac_state)
@@ -288,29 +383,72 @@ void ir_codec_config_set_temperature(int ac_brand_type, float temperature)
     ir_dev.ac_dev = NULL;
 }
 
+
+
 void ir_codec_config_set_power(int ac_brand_type, int power_state)
 {
     ir_dev.ac_dev = &ac_dev[ac_brand_type];
+    if (!power_state) {
+        ir_dev.ac_dev->ac_state = 0;
+    }
+    else {
+        ir_dev.ac_dev->ac_state = 1;
+    }
+
     switch (ac_brand_type)
     {
         //美的空调的数据
-        case 0:
+        case IR_DEVICE_TYPE_AC_BRAND_MIDEA:
         {
             ir_dev.ac_dev->ir_data_len = 6;
-            if (!power_state) {
-                ir_dev.ac_dev->ac_state = 0;
-            }
-            else {
-                ir_dev.ac_dev->ac_state = 1;
+            blog_debug_hexdump("TCL CODE", (uint8_t*)ir_dev.ac_dev->ir_data, ir_dev.ac_dev->ir_data_len);
+        }
+        break;
+        case IR_DEVICE_TYPE_AC_BRAND_TCL:
+        {
+            ir_dev.ac_dev->ir_data_len = 14;
+            if (ir_dev.ac_dev->ac_state) {
+
+                switch (ir_dev.ac_dev->param.modes)
+                {
+                    case AC_MODES_COOL:
+                    {
+                        memcpy(ir_dev.ac_dev->ir_data, tcl_ir_code[(uint8_t)(ir_dev.ac_dev->param.temperature-ir_dev.ac_dev->min_temp)], ir_dev.ac_dev->ir_data_len);
+                    }
+                    break;
+                    case AC_MODES_HEAT:
+                    {
+                        memcpy(ir_dev.ac_dev->ir_data, tcl_ir_code[(uint8_t)(ir_dev.ac_dev->param.temperature-ir_dev.ac_dev->min_temp)+15], ir_dev.ac_dev->ir_data_len);
+                    }
+                    break;
+                    case AC_MODES_AUTO:
+                    {
+                        memcpy(ir_dev.ac_dev->ir_data, tcl_ir_code[30], ir_dev.ac_dev->ir_data_len);
+                    }
+                    break;
+                    case AC_MODES_FAN_ONLY:
+                    {
+                        memcpy(ir_dev.ac_dev->ir_data, tcl_ir_code[31], ir_dev.ac_dev->ir_data_len);
+                    }
+                    break;
+                    case AC_MODES_DRY:
+                    {
+                        memcpy(ir_dev.ac_dev->ir_data, tcl_ir_code[32], ir_dev.ac_dev->ir_data_len);
+                    }
+                    break;
+                    default:
+                        break;
+                }
+
+
+                blog_debug_hexdump("TCL CODE", (uint8_t*)ir_dev.ac_dev->ir_data, ir_dev.ac_dev->ir_data_len);
             }
         }
         break;
-
         default:
             break;
     }
     //创建出波形数据
-    blog_debug("ir data=%02x %02x %02x %02x %02x %02x ", ir_dev.ac_dev->ir_data[0], ir_dev.ac_dev->ir_data[1], ir_dev.ac_dev->ir_data[2], ir_dev.ac_dev->ir_data[3], ir_dev.ac_dev->ir_data[4], ir_dev.ac_dev->ir_data[5]);
     ir_dev.ac_dev->cmd_data.cmd_date_len = ir_data_encode(ir_dev.ac_dev);
     dev_cmd_t* ir_cmd_data = create_ir_cmd(ac_brand_type, IR_DEVICE_CMD_SEND_MIDEA_CODE);
     HAL_at_uart_send(ir_cmd_data->data, ir_cmd_data->cmd_date_len);
@@ -328,43 +466,90 @@ void ir_codec_config_set_modes(int ac_brand_type, uint8_t modes_cnt)
         ir_dev.ac_dev = NULL;
         return;
     }
-
     ir_dev.ac_dev->ac_state = 1;
 
-    ir_dev.ac_dev->ir_data_len = 6;
+    switch (ac_brand_type)
+    {
+        case IR_DEVICE_TYPE_AC_BRAND_MIDEA:
+        {
+            ir_dev.ac_dev->ir_data_len = 6;
+            ir_uint8_t _temp_hex = ir_dev.ac_dev->param.modes_data[ir_dev.ac_dev->param.modes];
+            if (ir_dev.ac_dev->param.modes==AC_MODES_AUTO||ir_dev.ac_dev->param.modes==AC_MODES_DRY) {
 
-    ir_uint8_t _temp_hex = ir_dev.ac_dev->param.modes_data[ir_dev.ac_dev->param.modes];
-    if (ir_dev.ac_dev->param.modes==AC_MODES_AUTO||ir_dev.ac_dev->param.modes==AC_MODES_DRY) {
+                ir_dev.ac_dev->param.fan_mode = AC_FAN_MODE_FIXED;
+                uint8_t fam_data = ir_dev.ac_dev->param.fan_mode_data[(uint8_t)(ir_dev.ac_dev->param.fan_mode)];
+                fam_data <<= 4;
+                ir_dev.ac_dev->ir_data[2] = 0x1f;
+                ir_dev.ac_dev->ir_data[2] += fam_data;
+                ir_dev.ac_dev->ir_data[3] = ir_dev.ac_dev->ir_data[2]^0xff;
+            }
+            else if (ir_dev.ac_dev->param.modes==AC_MODES_COOL||ir_dev.ac_dev->param.modes==AC_MODES_HEAT) {
+                ir_dev.ac_dev->param.fan_mode = AC_FAN_MODE_AUTO;
+                uint8_t fam_data = ir_dev.ac_dev->param.fan_mode_data[(uint8_t)(ir_dev.ac_dev->param.fan_mode)];
+                fam_data <<= 4;
+                ir_dev.ac_dev->ir_data[2] = ir_dev.ac_dev->ir_data[2]& 0x1f;
+                ir_dev.ac_dev->ir_data[2] += fam_data;
+                ir_dev.ac_dev->ir_data[3] = ir_dev.ac_dev->ir_data[2]^0xff;
+            }
 
-        ir_dev.ac_dev->param.fan_mode = AC_FAN_MODE_FIXED;
-        uint8_t fam_data = ir_dev.ac_dev->param.fan_mode_data[(uint8_t)(ir_dev.ac_dev->param.fan_mode)];
-        fam_data <<= 4;
-        ir_dev.ac_dev->ir_data[2] = 0x1f;
-        ir_dev.ac_dev->ir_data[2] += fam_data;
-        ir_dev.ac_dev->ir_data[3] = ir_dev.ac_dev->ir_data[2]^0xff;
+            if (ir_dev.ac_dev->param.modes==AC_MODES_FAN_ONLY)ir_dev.ac_dev->ir_data[4] = 0B11100000;
+            else {
+
+                ir_uint8_t temp = 0;
+                temp = ir_dev.ac_dev->param.temp_data[(uint8_t)(ir_dev.ac_dev->param.temperature-ir_dev.ac_dev->min_temp)];
+                temp <<= 4;
+                ir_dev.ac_dev->ir_data[4] = ir_dev.ac_dev->ir_data[4]&0x0f;
+                ir_dev.ac_dev->ir_data[4] += temp;
+            }
+            _temp_hex <<= 2;
+            ir_dev.ac_dev->ir_data[4] = ir_dev.ac_dev->ir_data[4]&0xf0;
+            ir_dev.ac_dev->ir_data[4] += _temp_hex;
+            ir_dev.ac_dev->ir_data[5] = ir_dev.ac_dev->ir_data[4]^0xff;
+            blog_debug_hexdump("Midea CODE", (uint8_t*)ir_dev.ac_dev->ir_data, ir_dev.ac_dev->ir_data_len);
+        }
+        break;
+        case IR_DEVICE_TYPE_AC_BRAND_TCL:
+        {
+            ir_dev.ac_dev->ir_data_len = 14;
+            //制冷模式下的调温
+            if (ir_dev.ac_dev->ac_state) {
+                switch (ir_dev.ac_dev->param.modes)
+                {
+                    case AC_MODES_COOL:
+                    {
+                        memcpy(ir_dev.ac_dev->ir_data, tcl_ir_code[(uint8_t)(ir_dev.ac_dev->param.temperature-ir_dev.ac_dev->min_temp)], ir_dev.ac_dev->ir_data_len);
+                    }
+                    break;
+                    case AC_MODES_HEAT:
+                    {
+                        memcpy(ir_dev.ac_dev->ir_data, tcl_ir_code[(uint8_t)(ir_dev.ac_dev->param.temperature-ir_dev.ac_dev->min_temp)+15], ir_dev.ac_dev->ir_data_len);
+                    }
+                    break;
+                    case AC_MODES_AUTO:
+                    {
+                        memcpy(ir_dev.ac_dev->ir_data, tcl_ir_code[30], ir_dev.ac_dev->ir_data_len);
+                    }
+                    break;
+                    case AC_MODES_FAN_ONLY:
+                    {
+                        memcpy(ir_dev.ac_dev->ir_data, tcl_ir_code[31], ir_dev.ac_dev->ir_data_len);
+                    }
+                    break;
+                    case AC_MODES_DRY:
+                    {
+                        memcpy(ir_dev.ac_dev->ir_data, tcl_ir_code[32], ir_dev.ac_dev->ir_data_len);
+                    }
+                    break;
+                    default:
+                        break;
+                }
+                blog_debug_hexdump("TCL CODE", (uint8_t*)ir_dev.ac_dev->ir_data, ir_dev.ac_dev->ir_data_len);
+            }
+        }
+        break;
+        default:
+            break;
     }
-    else if (ir_dev.ac_dev->param.modes==AC_MODES_COOL||ir_dev.ac_dev->param.modes==AC_MODES_HEAT) {
-        ir_dev.ac_dev->param.fan_mode = AC_FAN_MODE_AUTO;
-        uint8_t fam_data = ir_dev.ac_dev->param.fan_mode_data[(uint8_t)(ir_dev.ac_dev->param.fan_mode)];
-        fam_data <<= 4;
-        ir_dev.ac_dev->ir_data[2] = ir_dev.ac_dev->ir_data[2]& 0x1f;
-        ir_dev.ac_dev->ir_data[2] += fam_data;
-        ir_dev.ac_dev->ir_data[3] = ir_dev.ac_dev->ir_data[2]^0xff;
-    }
-
-    if (ir_dev.ac_dev->param.modes==AC_MODES_FAN_ONLY)ir_dev.ac_dev->ir_data[4] = 0B11100000;
-    else {
-
-        ir_uint8_t temp = 0;
-        temp = ir_dev.ac_dev->param.temp_data[(uint8_t)(ir_dev.ac_dev->param.temperature-ir_dev.ac_dev->min_temp)];
-        temp <<= 4;
-        ir_dev.ac_dev->ir_data[4] = ir_dev.ac_dev->ir_data[4]&0x0f;
-        ir_dev.ac_dev->ir_data[4] += temp;
-    }
-    _temp_hex <<= 2;
-    ir_dev.ac_dev->ir_data[4] = ir_dev.ac_dev->ir_data[4]&0xf0;
-    ir_dev.ac_dev->ir_data[4] += _temp_hex;
-    ir_dev.ac_dev->ir_data[5] = ir_dev.ac_dev->ir_data[4]^0xff;
 
     //创建出波形数据
     blog_debug("ir data=%02x %02x %02x %02x %02x %02x ", ir_dev.ac_dev->ir_data[0], ir_dev.ac_dev->ir_data[1], ir_dev.ac_dev->ir_data[2], ir_dev.ac_dev->ir_data[3], ir_dev.ac_dev->ir_data[4], ir_dev.ac_dev->ir_data[5]);
@@ -385,25 +570,41 @@ void ir_codec_config_set_fan_modes(int ac_brand_type, uint8_t modes_cnt)
     }
     ir_dev.ac_dev = &ac_dev[ac_brand_type];
     ir_dev.ac_dev->param.fan_mode = modes_cnt;
-    if (ir_dev.ac_dev->ac_state) {
 
-        ir_dev.ac_dev->ir_data_len = 6;
-        if (ir_dev.ac_dev->param.modes==AC_MODES_DRY||ir_dev.ac_dev->param.modes==AC_MODES_AUTO) {
-            ir_dev.ac_dev->param.fan_mode = AC_FAN_MODE_FIXED;
-            blog_error("ac mode=%d,fan_mode only =%d", ir_dev.ac_dev->param.modes, ir_dev.ac_dev->param.fan_mode);
+    if (ir_dev.ac_dev->ac_state) {
+        switch (ac_brand_type)
+        {
+            case IR_DEVICE_TYPE_AC_BRAND_MIDEA:
+            {
+                ir_dev.ac_dev->ir_data_len = 6;
+                if (ir_dev.ac_dev->param.modes==AC_MODES_DRY||ir_dev.ac_dev->param.modes==AC_MODES_AUTO) {
+                    ir_dev.ac_dev->param.fan_mode = AC_FAN_MODE_FIXED;
+                    blog_error("ac mode=%d,fan_mode only =%d", ir_dev.ac_dev->param.modes, ir_dev.ac_dev->param.fan_mode);
+                }
+                else if (ir_dev.ac_dev->param.modes==AC_MODES_COOL||ir_dev.ac_dev->param.modes==AC_MODES_HEAT) {
+                    ir_dev.ac_dev->param.fan_mode = AC_FAN_MODE_AUTO;
+                    blog_error("ac mode=%d,fan_mode only =%d", ir_dev.ac_dev->param.modes, ir_dev.ac_dev->param.fan_mode);
+                }
+                uint8_t fam_data = ir_dev.ac_dev->param.fan_mode_data[(uint8_t)(ir_dev.ac_dev->param.fan_mode)];
+                fam_data <<= 5;
+                ir_dev.ac_dev->ir_data[2] = ir_dev.ac_dev->ir_data[2]& 0x1f;
+                ir_dev.ac_dev->ir_data[2] += fam_data;
+                ir_dev.ac_dev->ir_data[3] = ir_dev.ac_dev->ir_data[2]^0xff;
+                blog_debug_hexdump("Midea CODE", (uint8_t*)ir_dev.ac_dev->ir_data, ir_dev.ac_dev->ir_data_len);
+            }
+            break;
+            case IR_DEVICE_TYPE_AC_BRAND_TCL:
+            {
+
+                blog_debug_hexdump("TCL CODE", (uint8_t*)ir_dev.ac_dev->ir_data, ir_dev.ac_dev->ir_data_len);
+            }
+            break;
+            default:
+                break;
         }
-        else if (ir_dev.ac_dev->param.modes==AC_MODES_COOL||ir_dev.ac_dev->param.modes==AC_MODES_HEAT) {
-            ir_dev.ac_dev->param.fan_mode = AC_FAN_MODE_AUTO;
-            blog_error("ac mode=%d,fan_mode only =%d", ir_dev.ac_dev->param.modes, ir_dev.ac_dev->param.fan_mode);
-        }
-        uint8_t fam_data = ir_dev.ac_dev->param.fan_mode_data[(uint8_t)(ir_dev.ac_dev->param.fan_mode)];
-        fam_data <<= 5;
-        ir_dev.ac_dev->ir_data[2] = ir_dev.ac_dev->ir_data[2]& 0x1f;
-        ir_dev.ac_dev->ir_data[2] += fam_data;
-        blog_debug("fam_data =%02x", ir_dev.ac_dev->ir_data[2]);
-        ir_dev.ac_dev->ir_data[3] = ir_dev.ac_dev->ir_data[2]^0xff;
+
         //创建出波形数据
-        blog_debug("ir data=%02x %02x %02x %02x %02x %02x ", ir_dev.ac_dev->ir_data[0], ir_dev.ac_dev->ir_data[1], ir_dev.ac_dev->ir_data[2], ir_dev.ac_dev->ir_data[3], ir_dev.ac_dev->ir_data[4], ir_dev.ac_dev->ir_data[5]);
+
         ir_dev.ac_dev->cmd_data.cmd_date_len = ir_data_encode(ir_dev.ac_dev);
         dev_cmd_t* ir_cmd_data = create_ir_cmd(ac_brand_type, IR_DEVICE_CMD_SEND_MIDEA_CODE);
         HAL_at_uart_send(ir_cmd_data->data, ir_cmd_data->cmd_date_len);
