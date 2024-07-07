@@ -26,13 +26,14 @@
 
 void main()
 {
-
-    blog_info("[OS] Starting TCP/IP Stack...");
-    tcpip_init(NULL, NULL);
+    bl_sys_init();
 
     easyflash_init();
-    blog_info("[OS] proc_main_entry task...");
     device_state_init(NULL);
+    blog_info("[OS] Starting TCP/IP Stack...");
+    tcpip_init(NULL, NULL);
+    blog_info("[OS] proc_main_entry task...");
+
 
     while (1)
     {

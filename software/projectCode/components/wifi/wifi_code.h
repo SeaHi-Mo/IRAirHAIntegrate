@@ -13,7 +13,7 @@
 
 #include <wifi_mgmr_ext.h>
 #include <hal_wifi.h>
-
+#include "axk_ble.h"
 typedef struct wifi_code_info {
     char ssid[64];
     char password[64];
@@ -25,7 +25,7 @@ typedef struct wifi_code_info {
     uint32_t addr_ip;
 }wifi_info_t;
 
-void wifi_device_init(void);
+void wifi_device_init(blufi_wifi_conn_event_cb_t cb);
 void quick_connect_wifi(wifi_info_t* wifi_info);
 bool wifi_device_connect_status(void);
 #endif

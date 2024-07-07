@@ -25,6 +25,15 @@
 static dev_msg_t dev_msg = { 0 };
 static bool wifi_status = false;
 
+extern blufi_wifi_conn_event_cb_t sg_blufi_conn_cb;
+
+static void blufi_wifi_evt_export(int evt)
+{
+    if (sg_blufi_conn_cb)
+    {
+        sg_blufi_conn_cb(evt, NULL);
+    }
+}
 
 static wifi_conf_t conf =
 {
@@ -97,6 +106,8 @@ static void event_cb_wifi_event(input_event_t* event, void* private_data)
         case CODE_WIFI_ON_DISCONNECT:
         {
             blog_info("[APP] [EVT] disconnect %lld", aos_now_ms());
+            if (ble_is_connected)
+                blufi_wifi_evt_export(BLUFI_STATION_DISCONNECTED);
         }
         break;
         case CODE_WIFI_ON_CONNECTING:
@@ -112,6 +123,8 @@ static void event_cb_wifi_event(input_event_t* event, void* private_data)
         case CODE_WIFI_ON_CONNECTED:
         {
             blog_info("[APP] [EVT] connected %lld", aos_now_ms());
+            if (ble_is_connected)
+                blufi_wifi_evt_export(BLUFI_STATION_CONNECTED);
         }
         break;
         case CODE_WIFI_ON_PRE_GOT_IP:
@@ -123,6 +136,8 @@ static void event_cb_wifi_event(input_event_t* event, void* private_data)
         {
             blog_info("[APP] [EVT] GOT IP %lld", aos_now_ms());
             blog_info("[SYS] Memory left is %d Bytes", xPortGetFreeHeapSize());
+            if (ble_is_connected)
+                blufi_wifi_evt_export(BLUFI_STATION_GOT_IP);
             wifi_status = true;
             dev_msg.device_state = DEVICE_STATE_WIFI_CONNECTED;
             memset(dev_msg.wifi_info.ipv4_addr, 0, 16);
@@ -133,6 +148,7 @@ static void event_cb_wifi_event(input_event_t* event, void* private_data)
                 strcpy(dev_msg.wifi_info.ipv4_addr, ip4addr_ntoa(&dev_msg.wifi_info.addr_ip));
             }
             device_state_update(true, &dev_msg); //WiFi 准备OK,等待连接
+
         }
         break;
         case CODE_WIFI_ON_PROV_SSID:
@@ -204,9 +220,10 @@ static void proc_main_entry(void* pvParameters)
     vTaskDelete(NULL);
 }
 
-void wifi_device_init(void)
+void wifi_device_init(blufi_wifi_conn_event_cb_t cb)
 {
     xTaskCreate(proc_main_entry, (char*)"main_entry", 1024, NULL, 15, NULL);
+    sg_blufi_conn_cb = cb;
 }
 
 bool wifi_device_connect_status(void)

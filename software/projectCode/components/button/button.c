@@ -16,6 +16,7 @@
 #include <blog.h>
 #include <device_state.h>
 #include "button.h"
+static dev_msg_t dev_msg = { 0 };
 
 static void ir_buttom_task(void* asr)
 {
@@ -32,12 +33,23 @@ static void ir_buttom_task(void* asr)
         }
 
         if (!bl_gpio_input_get_value(IR_DEVICE_NET_COONFIG_BUTTON)) {
+            uint8_t timer_out = 0;
             while (!bl_gpio_input_get_value(IR_DEVICE_NET_COONFIG_BUTTON))
             {
+                timer_out++;
                 vTaskDelay(pdMS_TO_TICKS(30));
+                if (timer_out>=67) {
+                    break;
+                }
             }
             //启动配网
-            blog_debug("start netconfig ........");
+            // 
+            if (timer_out>=67) {
+                timer_out = 0;
+                blog_debug("start netconfig ........");
+                dev_msg.device_state = DEVICE_STATE_BLUFI_CONFIG;
+                device_state_update(false, &dev_msg); //WiFi 准备OK,等待连接
+            }
         }
         vTaskDelay(pdMS_TO_TICKS(50));
     }

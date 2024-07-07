@@ -20,7 +20,7 @@
 #include "led.h"
 #include "button.h"
 #include "sht30_dev.h"
-
+#include "blufi_config.h"
 #include "homeAssistantPort.h"
 #include "dev_ha.h"
 
@@ -34,6 +34,7 @@ typedef enum {
     DEVICE_STATE_WIFI_CONNECTED,
     DEVICE_STATE_WIFI_CONNECT_ERROR,
     DEVICE_STATE_WIFI_DISCONNECT,
+    DEVICE_STATE_BLUFI_CONFIG,
     DEVICE_STATE_ATCMD_WIFICFG_SET,
     DEVICE_STATE_ATCMD_HACFG_SET,
     DEVICE_STATE_ATCMD_MQTTCFG_SET,

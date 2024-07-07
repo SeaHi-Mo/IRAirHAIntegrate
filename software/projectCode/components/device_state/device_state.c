@@ -20,6 +20,7 @@
 static homeAssisatnt_device_t ha_dev;
 static QueueHandle_t device_queue_handle;
 
+
 static void device_state_task(void* arg)
 {
     dev_msg_t* dev_msg = pvPortMalloc(sizeof(dev_msg_t));
@@ -103,6 +104,10 @@ static void device_state_task(void* arg)
                     quick_connect_wifi(&dev_msg->wifi_info);
                 }
                 break;
+            case DEVICE_STATE_BLUFI_CONFIG:
+                device_led_update_state(LED_STATE_BLINK_0_5);
+                blufi_config_start();
+                break;
             case DEVICE_STATE_HOMEASSISTANT_CONNECT:
                 blog_info("<<<<<<<<<<<<<<< DEVICE_STATE_HOMEASSISTANT_CONNECT");
 
@@ -153,7 +158,8 @@ void device_state_init(void* arg)
     BaseType_t err = xTaskCreate(device_state_task, "device_state_task", DEVICE_QUEUE_HANDLE_SIZE*2, NULL, 10, NULL);
     atUartInit(115200);
     ir_dvice_init();
-    wifi_device_init();
+    wifi_device_init(blufi_wifi_event);
+    // blufi_wifi_init();
     device_led_init();
     device_button_init();
     // sht30_device_init(SHT30_SINGLE_SAMPLE_NOCLOK_LOW);
@@ -162,6 +168,9 @@ void device_state_init(void* arg)
         blog_info("\"device_state_task\" is create OK");
     }
     else blog_error("\"device_state_task\" is create error");
+    dev_msg_t dev_msg = { 0 };
+    dev_msg.device_state = DEVICE_SATE_SYSYTEM_INIT;
+    device_state_update(false, &dev_msg); //WiFi 准备OK,等待连接
 }
 
 
