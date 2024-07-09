@@ -590,6 +590,48 @@ typedef struct {
 }ha_climateHVAC_list_t;
 
 #endif
+
+#if CONFIG_ENTITY_ENABLE_SELECT
+
+typedef  struct homeAssisatnt_entity_select {
+    char* availability_topic;
+    char* availability_mode;
+    char* availability_template;
+    char* command_template;//接收文本的格式
+    char* command_topic;//接收文本的主题
+    bool enabled_by_default;
+    char* encoding;
+    char* entity_category;
+    char* icon;
+
+    char* json_attributes_template;
+    char* json_attributes_topic;
+    char* name;
+    char* object_id;
+    bool optimistic;
+
+    char** options;
+    int options_numble;
+    int qos;
+    bool retain;
+
+    char* state_topic;
+    char* unique_id;
+    char* value_template;
+    char* options_value;
+
+    char* entity_config_topic;
+    char* config_data;
+    struct homeAssisatnt_entity_select* prev;
+    struct homeAssisatnt_entity_select* next;
+}ha_select_t;
+
+typedef struct {
+    char* entity_type;
+    ha_select_t* select_list;
+    ha_select_t* command_select;
+}ha_select_list_t;
+#endif
 /**
  * @brief  设备信息
  *
@@ -630,7 +672,9 @@ typedef struct homeAssisatnt_device {
 #if CONFIG_ENTITY_ENABLE_CLIMATE_HVAC
     ha_climateHVAC_list_t* entity_climateHVAC;
 #endif
-
+#if CONFIG_ENTITY_ENABLE_SELECT
+    ha_select_list_t* entity_select;
+#endif
     ha_mqtt_info_t mqtt_info;
     bool homeassistant_online;
     void (*event_cb)(ha_event_t event, struct homeAssisatnt_device* ha_dev);

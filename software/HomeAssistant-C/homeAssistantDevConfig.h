@@ -116,7 +116,7 @@
 #define CONFIG_ENTITY_ENABLE_SCENE 0  
 
  //选择器实体  默认不开启，需要使用就置 1                 
-#define CONFIG_ENTITY_ENABLE_SELECT 0      
+#define CONFIG_ENTITY_ENABLE_SELECT 1      
 
 //传感器实体   默认不开启，需要使用就置 1            
 #define CONFIG_ENTITY_ENABLE_SENSOR 0    

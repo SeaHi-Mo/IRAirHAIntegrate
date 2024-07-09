@@ -68,7 +68,6 @@ static void device_state_task(void* arg)
                 //启动HA 连接
                 homeAssistant_device_start();
                 //如果连接信息保存的不一致，则重新保存
-
                 wifi_info_t flash_wifi_info = { 0 };
                 flash_get_wifi_info(&flash_wifi_info);
                 if (memcmp(flash_wifi_info.ssid, dev_msg->wifi_info.ssid, strlen(dev_msg->wifi_info.ssid))|| memcmp(flash_wifi_info.password, dev_msg->wifi_info.password, strlen(dev_msg->wifi_info.password)))
@@ -76,12 +75,7 @@ static void device_state_task(void* arg)
                     //重新保存新的WiFi信息
                     flash_save_wifi_info(&dev_msg->wifi_info);
                 }
-
-                // ir_device_send_cmd(IR_DEVICE_CMD_SET_BAUD_RATE_115200);
                 vTaskDelay(pdMS_TO_TICKS(100));
-
-                // sht3x_data_t* sht30_data = sht30_get_data();
-                // blog_info(" temp =%.2fC humi=%d %%", sht30_data->temperature, sht30_data->humidity);
             }
             break;
             case DEVICE_STATE_ATCMD_WIFICFG_SET:

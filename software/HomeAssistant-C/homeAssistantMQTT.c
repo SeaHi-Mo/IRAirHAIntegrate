@@ -928,6 +928,58 @@ static void  entity_climate_HVAC_add_node(ha_climateHVAC_t* climateHVAC_new_node
     vPortFree(climateHVAC_new_node->config_data);
 }
 #endif
+
+#if CONFIG_ENTITY_ENABLE_SELECT
+
+char* default_options[] = { "options 1","options 2" };
+
+static void homeAssistant_create_select_data(ha_select_t* select_entity, cJSON* device_json)
+{
+    if (select_entity==NULL) {
+        HA_LOG_E("entity select buff is NULL\r\n");
+        return;
+    }
+    cJSON* root = cJSON_CreateObject();
+    if (select_entity->name!=NULL) cJSON_AddStringToObject(root, "name", select_entity->name);
+    if (unique_id==NULL&&select_entity->unique_id!=NULL)
+    {
+        unique_id = pvPortMalloc(32);
+        memset(unique_id, 0, 32);
+        sprintf(unique_id, "%s-%02x%2x", select_entity->unique_id, STA_MAC[4], STA_MAC[5]);
+        HA_LOG_F("unique_id =%s\r\n", unique_id);
+    }
+    if (select_entity->availability_mode!=NULL)cJSON_AddStringToObject(root, "availability_mode", select_entity->availability_mode);
+    if (select_entity->availability_template!=NULL)cJSON_AddStringToObject(root, "availability_template", select_entity->availability_template);
+    if (select_entity->availability_topic!=NULL)cJSON_AddStringToObject(root, "availability_topic", select_entity->availability_topic);
+    else cJSON_AddStringToObject(root, "availability_topic", ha_device->availability_topic);
+
+    if (select_entity->command_template!=NULL)cJSON_AddStringToObject(root, "command_template", select_entity->command_template);
+    if (select_entity->command_topic!=NULL)cJSON_AddStringToObject(root, "command_topic", select_entity->command_topic);
+    if (!select_entity->enabled_by_default)cJSON_AddFalseToObject(root, "enabled_by_default");
+    if (select_entity->encoding!=NULL)cJSON_AddStringToObject(root, "encoding", select_entity->encoding);
+    if (select_entity->entity_category!=NULL)cJSON_AddStringToObject(root, "entity_category", select_entity->entity_category);
+    if (select_entity->icon!=NULL)cJSON_AddStringToObject(root, "icon", select_entity->icon);
+    if (select_entity->json_attributes_template!=NULL)cJSON_AddStringToObject(root, "json_attributes_template", select_entity->json_attributes_template);
+    if (select_entity->json_attributes_topic!=NULL)cJSON_AddStringToObject(root, "json_attributes_topic", select_entity->json_attributes_topic);
+    if (select_entity->object_id!=NULL)cJSON_AddStringToObject(root, "object_id", select_entity->object_id);
+    if (!select_entity->optimistic)cJSON_AddFalseToObject(root, "optimistic");
+    if (select_entity->options==NULL) {
+        select_entity->options = default_options;
+        select_entity->options_numble = 2;
+    }
+    cJSON* options = cJSON_CreateArray();
+    cJSON_AddItemToObject(root, "options", options);
+    for (size_t i = 0; i < select_entity->options_numble; i++)
+    {
+        cJSON_AddItemToArray(options, cJSON_CreateString(select_entity->options[i]));
+    }
+    if (select_entity->qos>0)cJSON_AddNumberToObject(root, "qos", select_entity->qos);
+    if (select_entity->retain>0)cJSON_AddNumberToObject(root, "retain", select_entity->retain);
+    if (device_json!=NULL)cJSON_AddItemToObject(root, "device", device_json);
+    select_entity->config_data = cJSON_PrintUnformatted(root);
+    vPortFree(unique_id);
+}
+#endif
 /**
  * @brief homeAssistant_get_command
  *      获取 服务器指令事件，并把相应实体指针指向对应的实体
