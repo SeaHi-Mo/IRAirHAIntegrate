@@ -23,7 +23,8 @@ typedef enum {
     FLASH_MQTT_USERNAME,
     FLASH_MQTT_PASSWORD,
     FLASH_HA_DEV_NAME,
-    FLASH_HA_MANUFACTURER
+    FLASH_HA_MANUFACTURER,
+    FLASH_HA_AC_TYPE,
 }flash_key_t;
 
 bool flash_save_wifi_info(void* value);
@@ -39,4 +40,7 @@ bool flash_save_new_temp(float temperature);
 float flash_get_temperature(void);
 bool flash_save_new_ac_mode(uint8_t modes);
 int flash_get_ac_mode(void);
+
+bool flash_save_new_ac_type(int ac_type);
+int flash_get_ac_type(void);
 #endif

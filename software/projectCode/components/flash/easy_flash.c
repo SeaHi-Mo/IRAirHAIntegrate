@@ -17,7 +17,7 @@
 #include "wifi_code.h"
 #include "device_state.h"
 
-static char* flash_key[] = { "ssid","pass","pmk","band","chan_id","mqtt_host","mqtt_port","mqtt_clientID","mqtt_username","mqtt_password","ha_name","ha_manufacturer" };
+static char* flash_key[] = { "ssid","pass","pmk","band","chan_id","mqtt_host","mqtt_port","mqtt_clientID","mqtt_username","mqtt_password","ha_name","ha_manufacturer","ac_type" };
 static char* ac_flash_key[] = { "temp","mode" };
 
 static bool ef_set_bytes(const char* key, char* value, int len) {
@@ -251,7 +251,7 @@ bool flash_save_new_ac_mode(uint8_t modes)
     memset(modes_str, 0, 1);
     sprintf(modes_str, "%d", modes);
 
-    bool ret = ef_get_bytes(ac_flash_key[1], modes_str, 2);
+    bool ret = ef_set_bytes(ac_flash_key[1], modes_str, 2);
 
     vPortFree(modes_str);
     return ret;
@@ -270,4 +270,31 @@ int flash_get_ac_mode(void)
 
     vPortFree(modes_str);
     return mode;
+}
+
+bool flash_save_new_ac_type(int ac_type)
+{
+    char* BUFF = pvPortMalloc(2);
+    memset(BUFF, 0, 2);
+    sprintf(BUFF, "%d", ac_type);
+
+    bool ret = ef_set_bytes(flash_key[FLASH_HA_AC_TYPE], BUFF, 2);
+
+    vPortFree(BUFF);
+    return ret;
+}
+
+int flash_get_ac_type(void)
+{
+    int ac_type = 0;
+    char* modes_str = pvPortMalloc(2);
+    memset(modes_str, 0, 2);
+    ef_get_bytes(flash_key[FLASH_HA_AC_TYPE], modes_str, 2);
+    if (*modes_str>='0'&& *modes_str<='9') {
+        ac_type = atoi(modes_str);
+    }
+    else ac_type = 0;
+
+    vPortFree(modes_str);
+    return ac_type;
 }

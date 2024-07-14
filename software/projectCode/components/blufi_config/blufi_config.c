@@ -14,6 +14,7 @@
 #include <blog.h>
 #include "device_state.h"
 #include "blufi_config.h"
+#include "cJSON.h"
 
 #define BLUFI_NAME "HA_IRremote"
 
@@ -22,6 +23,68 @@ static dev_msg_t dev_msg = { 0 };
 static int scan_counter;
 bool ble_is_connected = false;
 static bool gl_sta_connected = false;
+static char buff[512] = { 0 };
+
+static char* get_ip_addr_from_custom_data(const char* custom_data)
+{
+    char* data = custom_data;
+    if (data==NULL) {
+        blog_error("data is NULL");
+        return NULL;
+    }
+    cJSON* root = cJSON_Parse(data);
+    if (root==NULL) {
+        blog_error("%s is't json", data);
+        cJSON_Delete(root);
+        return NULL;
+    }
+    cJSON* addr_type = cJSON_GetObjectItem(root, "mqtt");
+    if (addr_type==NULL) {
+        blog_error("%s not have \"mqtt\" project", root);
+        cJSON_Delete(root);
+        return NULL;
+    }
+    cJSON* addr = cJSON_GetObjectItem(addr_type, "adrr");
+    if (addr==NULL) {
+        blog_error("%s not have \"addr\" project", addr_type);
+        cJSON_Delete(root);
+        return NULL;
+    }
+    memset(buff, 0, 512);
+    strcpy(buff, addr->valuestring);
+    cJSON_Delete(root);
+    return buff;
+}
+
+static uint16_t get_port_from_custom_data(const char* custom_data)
+{
+    char* data = custom_data;
+    if (data==NULL) {
+        blog_error("data is NULL");
+        return 0;
+    }
+    cJSON* root = cJSON_Parse(data);
+    if (root==NULL) {
+        blog_error("%s is't json", data);
+        cJSON_Delete(root);
+        return 0;
+    }
+    cJSON* addr_type = cJSON_GetObjectItem(root, "mqtt");
+    if (addr_type==NULL) {
+        blog_error("%s not have \"mqtt\" project", root);
+        cJSON_Delete(root);
+        return 0;
+    }
+    cJSON* _port = cJSON_GetObjectItem(addr_type, "port");
+    if (_port==NULL) {
+        blog_error("%s not have \"port\" project", addr_type);
+        cJSON_Delete(root);
+        return 0;
+    }
+    uint16_t port = atoi(_port->valuestring);
+    cJSON_Delete(root);
+    return port;
+}
 
 void blufi_wifi_event(int event, void* param)
 {
@@ -193,6 +256,10 @@ static void example_event_callback(_blufi_cb_event_t event, _blufi_cb_param_t* p
             blog_info("Custom Data:%.*s", param->custom_data.data_len, param->custom_data.data);
             // echo
             axk_blufi_send_custom_data(param->custom_data.data, param->custom_data.data_len);
+            ha_mqtt_info_t mqtt_info;
+            mqtt_info.mqtt_host = get_ip_addr_from_custom_data((char*)param->custom_data.data);
+            mqtt_info.port = get_port_from_custom_data((char*)param->custom_data.data);
+            flash_save_mqtt_info(&mqtt_info);
             break;
         case AXK_BLUFI_EVENT_RECV_USERNAME:
             /* Not handle currently */

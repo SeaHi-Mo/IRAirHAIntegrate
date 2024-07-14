@@ -43,11 +43,14 @@ typedef enum {
     DEVICE_STATE_HOMEASSISTANT_AC_MODE,
     DEVICE_STATE_HOMEASSISTANT_AC_TEMP,
     DEVICE_STATE_HOMEASSISTANT_AC_FAN_MODE,
+    DEVICE_STATE_HOMEASSISTANT_AC_TYPE_CHANGE,
 }device_state_t;
+
 
 typedef struct device_state_handle {
     device_state_t device_state;
     wifi_info_t wifi_info;
+    int ac_type;
     homeAssisatnt_device_t* ha_dev;
 }dev_msg_t;
 

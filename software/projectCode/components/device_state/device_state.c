@@ -110,7 +110,7 @@ static void device_state_task(void* arg)
             {
                 ha_climateHVAC_t* ha_ac1 = (ha_climateHVAC_t*)homeAssistant_fine_entity(CONFIG_HA_ENTITY_CLIMATE_HVAC, "AC_1");
                 blog_info("<<<<<<<<<<<<<<<  DEVICE_STATE_HOMEASSISTANT_AC_POWER %s", ha_ac1->power_state?"ON":"OFF");
-                ir_codec_config_set_power(IR_DEVICE_TYPE_AC_BRAND_MIDEA, ha_ac1->power_state);
+                ir_codec_config_set_power(dev_msg->ac_type, ha_ac1->power_state);
             }
             break;
             case  DEVICE_STATE_HOMEASSISTANT_AC_MODE:
@@ -118,7 +118,7 @@ static void device_state_task(void* arg)
                 ha_climateHVAC_t* ha_ac1 = (ha_climateHVAC_t*)homeAssistant_fine_entity(CONFIG_HA_ENTITY_CLIMATE_HVAC, "AC_1");
 
                 blog_info("<<<<<<<<<<<<<<<  DEVICE_STATE_HOMEASSISTANT_AC_MODE %d", ha_ac1->modes_type);
-                ir_codec_config_set_modes(IR_DEVICE_TYPE_AC_BRAND_MIDEA, ha_ac1->modes_type);
+                ir_codec_config_set_modes(dev_msg->ac_type, ha_ac1->modes_type);
                 flash_save_new_ac_mode(ha_ac1->modes_type);
             }
             break;
@@ -127,7 +127,7 @@ static void device_state_task(void* arg)
                 ha_climateHVAC_t* ha_ac1 = (ha_climateHVAC_t*)homeAssistant_fine_entity(CONFIG_HA_ENTITY_CLIMATE_HVAC, "AC_1");
                 blog_info("<<<<<<<<<<<<<<<  DEVICE_STATE_HOMEASSISTANT_AC_TEMP %.1f", ha_ac1->temperature_value);
 
-                ir_codec_config_set_temperature(IR_DEVICE_TYPE_AC_BRAND_MIDEA, ha_ac1->temperature_value);
+                ir_codec_config_set_temperature(dev_msg->ac_type, ha_ac1->temperature_value);
                 flash_save_new_temp(ha_ac1->temperature_value);
             }
             break;
@@ -135,7 +135,20 @@ static void device_state_task(void* arg)
             {
                 ha_climateHVAC_t* ha_ac1 = (ha_climateHVAC_t*)homeAssistant_fine_entity(CONFIG_HA_ENTITY_CLIMATE_HVAC, "AC_1");
                 blog_info("<<<<<<<<<<<<<<<  DEVICE_STATE_HOMEASSISTANT_AC_TEMP %d", ha_ac1->fan_modes_type);
-                ir_codec_config_set_fan_modes(IR_DEVICE_TYPE_AC_BRAND_MIDEA, ha_ac1->fan_modes_type);
+                ir_codec_config_set_fan_modes(dev_msg->ac_type, ha_ac1->fan_modes_type);
+            }
+            break;
+            case DEVICE_STATE_HOMEASSISTANT_AC_TYPE_CHANGE:
+            {
+                blog_info("<<<<<<<<<<<<<<<  DEVICE_STATE_HOMEASSISTANT_AC_TYPE_CHANGE %d", dev_msg->ac_type);
+                flash_save_new_ac_type(dev_msg->ac_type);
+
+                for (size_t i = 0; i < 3; i++)
+                {
+                    vTaskDelay(pdMS_TO_TICKS(1000));
+                    blog_warn("The system will restart in 2 seconds:%d s", i+1);
+                }
+                bl_sys_reset_system();
             }
             break;
             default:
