@@ -16,24 +16,6 @@
 
 static dev_msg_t dev_msg;
 
-
-static ir_dev_type_t get_ac_type_enum(ha_select_t* select, char* ac_type)
-{
-    if (select==NULL||ac_type==NULL) {
-        blog_error("params is NULL");
-        return  IR_DEVICE_TYPE_NONE;
-    }
-    uint8_t i = 0;
-    for (i = 0; i < select->options_numble; i++)
-    {
-        if (!strncmp(select->options[i], ac_type, strlen(ac_type))) {
-
-            return i;
-        }
-    }
-    return IR_DEVICE_TYPE_NONE;
-}
-
 void ha_event_cb(ha_event_t event, homeAssisatnt_device_t* dev)
 {
     switch (event)
@@ -45,18 +27,19 @@ void ha_event_cb(ha_event_t event, homeAssisatnt_device_t* dev)
             HA_LOG_I("<<<<<<<<<<  HA_EVENT_MQTT_CONNECED AC TYPE=%d\r\n", ac_type);
             static ha_climateHVAC_t AC1 = {
                 .unique_id = "AC_1",
+
             };
             switch (ac_type)
             {
                 case IR_DEVICE_TYPE_AC_BRAND_MIDEA:
                     AC1.name = "美的空调";
                     AC1.max_temp = 30.0;
-                    AC1.max_temp = 17.0;
+                    AC1.min_temp = 17.0;
                     break;
                 case IR_DEVICE_TYPE_AC_BRAND_TCL:
                     AC1.name = "TCL空调";
                     AC1.max_temp = 30.0;
-                    AC1.max_temp = 16.0;
+                    AC1.min_temp = 16.0;
                     break;
                 default:
                     break;
@@ -71,13 +54,15 @@ void ha_event_cb(ha_event_t event, homeAssisatnt_device_t* dev)
                 .options_numble = 2,
                 .optimistic = true,
                 .enabled_by_default = true,
+
             };
-            // select.options_value = ac_type?"TCL": "美的";
+            select.option = ac_type;
 
             homeAssistant_device_add_entity(CONFIG_HA_ENTITY_SELECT, &select);
             homeAssistant_device_send_status(HOMEASSISTANT_STATUS_ONLINE);
             dev_msg.device_state = DEVICE_STATE_HOMEASSISTANT_CONNECT;
             // homeAssistant_device_send_entity_state(CONFIG_HA_ENTITY_CLIMATE_HVAC, &AC1, 0);
+            dev_msg.ac_type = select.option;
             device_state_update(false, &dev_msg);
 
         }
@@ -90,29 +75,33 @@ void ha_event_cb(ha_event_t event, homeAssisatnt_device_t* dev)
             HA_LOG_I("<<<<<<<<<< HA_EVENT_MQTT_COMMAND_CLIMATE_HVAC_POWER=%s\r\n", dev->entity_climateHVAC->command_climateHVAC->power_state?"ON":"OFF");
             homeAssistant_device_send_entity_state(CONFIG_HA_ENTITY_CLIMATE_HVAC, dev->entity_climateHVAC->command_climateHVAC, dev->entity_climateHVAC->command_climateHVAC->power_state);
             dev_msg.device_state = DEVICE_STATE_HOMEASSISTANT_AC_POWER;
+
             device_state_update(false, &dev_msg);
             break;
         case HA_EVENT_MQTT_COMMAND_CLIMATE_HVAC_MODES:
             HA_LOG_I("<<<<<<<<<< HA_EVENT_MQTT_COMMAND_CLIMATE_HVAC_MODES\r\n");
             homeAssistant_device_send_entity_state(CONFIG_HA_ENTITY_CLIMATE_HVAC, dev->entity_climateHVAC->command_climateHVAC, 1);
             dev_msg.device_state = DEVICE_STATE_HOMEASSISTANT_AC_MODE;
+
             device_state_update(false, &dev_msg);
             break;
         case HA_EVENT_MQTT_COMMAND_CLIMATE_HVAC_TEMP:
             HA_LOG_I("<<<<<<<<<< HA_EVENT_MQTT_COMMAND_CLIMATE_HVAC_TEMP temp=%0.2f\r\n", dev->entity_climateHVAC->command_climateHVAC->temperature_value);
             dev_msg.device_state = DEVICE_STATE_HOMEASSISTANT_AC_TEMP;
+
             device_state_update(false, &dev_msg);
             break;
         case HA_EVENT_MQTT_COMMAND_CLIMATE_HVAC_FAN_MODES:
             HA_LOG_I("<<<<<<<<<< HA_EVENT_MQTT_COMMAND_CLIMATE_HVAC_FAN_MODES temp=%d\r\n", dev->entity_climateHVAC->command_climateHVAC->fan_modes_type);
             dev_msg.device_state = DEVICE_STATE_HOMEASSISTANT_AC_FAN_MODE;
+
             device_state_update(false, &dev_msg);
             break;
         case HA_EVENT_MQTT_COMMAND_SELECT_VALUE:
-            HA_LOG_I("<<<<<<<<<< HA_EVENT_MQTT_COMMAND_SELECT_VALUE=%s\r\n", dev->entity_select->command_select->options_value);
+            HA_LOG_I("<<<<<<<<<< HA_EVENT_MQTT_COMMAND_SELECT_VALUE=%s\r\n", dev->entity_select->command_select->options[dev->entity_select->command_select->option]);
             homeAssistant_device_send_entity_state(CONFIG_HA_ENTITY_SELECT, dev->entity_select->command_select, 1);
             dev_msg.device_state = DEVICE_STATE_HOMEASSISTANT_AC_TYPE_CHANGE;
-            dev_msg.ac_type = get_ac_type_enum(dev->entity_select->command_select, dev->entity_select->command_select->options_value);
+            dev_msg.ac_type = dev->entity_select->command_select->option;
             dev_msg.ha_dev = dev;
             device_state_update(false, &dev_msg);
             break;

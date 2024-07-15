@@ -17,6 +17,7 @@
 #include <assert.h>
 #include <stdarg.h>
 #include "time.h"
+#include "blog.h"
 // #include "aiio_wifi.h"
 #include "homeAssistantPort.h"
 #include "cJSON.h"
@@ -925,6 +926,7 @@ static void  entity_climate_HVAC_add_node(ha_climateHVAC_t* climateHVAC_new_node
     climateHVAC_new_node->next = ha_device->entity_climateHVAC->climateHVAC_list;
     ha_device->entity_climateHVAC->climateHVAC_list->prev = climateHVAC_new_node;
     vPortFree(unique_id);
+    unique_id = NULL;
     vPortFree(climateHVAC_new_node->config_data);
 }
 #endif
@@ -941,13 +943,8 @@ static void homeAssistant_create_select_data(ha_select_t* select_entity, cJSON* 
     }
     cJSON* root = cJSON_CreateObject();
     if (select_entity->name!=NULL) cJSON_AddStringToObject(root, "name", select_entity->name);
-    if (unique_id==NULL&&select_entity->unique_id!=NULL)
-    {
-        unique_id = pvPortMalloc(32);
-        memset(unique_id, 0, 32);
-        sprintf(unique_id, "%s-%02x%2x", select_entity->unique_id, STA_MAC[4], STA_MAC[5]);
-        HA_LOG_F("unique_id =%s\r\n", unique_id);
-    }
+
+    cJSON_AddStringToObject(root, "unique_id", unique_id);
     if (select_entity->availability_mode!=NULL)cJSON_AddStringToObject(root, "availability_mode", select_entity->availability_mode);
     if (select_entity->availability_template!=NULL)cJSON_AddStringToObject(root, "availability_template", select_entity->availability_template);
     if (select_entity->availability_topic!=NULL)cJSON_AddStringToObject(root, "availability_topic", select_entity->availability_topic);
@@ -955,6 +952,8 @@ static void homeAssistant_create_select_data(ha_select_t* select_entity, cJSON* 
 
     if (select_entity->command_template!=NULL)cJSON_AddStringToObject(root, "command_template", select_entity->command_template);
     if (select_entity->command_topic!=NULL)cJSON_AddStringToObject(root, "command_topic", select_entity->command_topic);
+
+    if (select_entity->state_topic!=NULL)cJSON_AddStringToObject(root, "state_topic", select_entity->state_topic);
     if (!select_entity->enabled_by_default)cJSON_AddFalseToObject(root, "enabled_by_default");
     if (select_entity->encoding!=NULL)cJSON_AddStringToObject(root, "encoding", select_entity->encoding);
     if (select_entity->entity_category!=NULL)cJSON_AddStringToObject(root, "entity_category", select_entity->entity_category);
@@ -963,21 +962,89 @@ static void homeAssistant_create_select_data(ha_select_t* select_entity, cJSON* 
     if (select_entity->json_attributes_topic!=NULL)cJSON_AddStringToObject(root, "json_attributes_topic", select_entity->json_attributes_topic);
     if (select_entity->object_id!=NULL)cJSON_AddStringToObject(root, "object_id", select_entity->object_id);
     if (!select_entity->optimistic)cJSON_AddFalseToObject(root, "optimistic");
+
     if (select_entity->options==NULL) {
         select_entity->options = default_options;
         select_entity->options_numble = 2;
     }
     cJSON* options = cJSON_CreateArray();
-    cJSON_AddItemToObject(root, "options", options);
     for (size_t i = 0; i < select_entity->options_numble; i++)
     {
         cJSON_AddItemToArray(options, cJSON_CreateString(select_entity->options[i]));
     }
+    cJSON_AddItemToObject(root, "options", options);
     if (select_entity->qos>0)cJSON_AddNumberToObject(root, "qos", select_entity->qos);
     if (select_entity->retain>0)cJSON_AddNumberToObject(root, "retain", select_entity->retain);
     if (device_json!=NULL)cJSON_AddItemToObject(root, "device", device_json);
     select_entity->config_data = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
+}
+
+static void  entity_select_add_node(ha_select_t* select_new_node)
+{
+    ha_select_t* select_list_handle = ha_device->entity_select->select_list->prev;
+
+    if (unique_id==NULL&&select_new_node->unique_id!=NULL)
+    {
+        unique_id = pvPortMalloc(32);
+        memset(unique_id, 0, 32);
+        sprintf(unique_id, "%s-%02x%2x", select_new_node->unique_id, STA_MAC[4], STA_MAC[5]);
+        HA_LOG_F("unique_id =%s\r\n", unique_id);
+    }
+    //开始创建新的实体数据
+    if (select_new_node->command_topic==NULL) {
+        select_new_node->command_topic = pvPortMalloc(128);
+        memset(select_new_node->command_topic, 0, 128);
+        sprintf(select_new_node->command_topic, "%s/%s/%s/set", CONFIG_HA_AUTOMATIC_DISCOVERY, CONFIG_HA_ENTITY_SELECT, unique_id);
+    }
+    //
+    if (select_new_node->state_topic==NULL) {
+        select_new_node->state_topic = pvPortMalloc(128);
+        memset(select_new_node->state_topic, 0, 128);
+        sprintf(select_new_node->state_topic, "%s/%s/%s/state", CONFIG_HA_AUTOMATIC_DISCOVERY, CONFIG_HA_ENTITY_SELECT, unique_id);
+    }
+
+    homeAssistant_create_select_data(select_new_node, homeAssistant_device_create());
+
+    if (select_new_node->entity_config_topic==NULL) {
+        select_new_node->entity_config_topic = pvPortMalloc(128);
+        memset(select_new_node->entity_config_topic, 0, 128);
+        sprintf(select_new_node->entity_config_topic, "%s/%s/%s/config", CONFIG_HA_AUTOMATIC_DISCOVERY, CONFIG_HA_ENTITY_SELECT, unique_id);
+    }
+
+    if (ha_device->mqtt_info.mqtt_connect_status) {
+        homeAssistant_mqtt_port_public(select_new_node->entity_config_topic, select_new_node->config_data, 1, 1);
+        if (select_new_node->command_topic!=NULL)homeAssistant_mqtt_port_subscribe(select_new_node->command_topic, 1);
+        homeAssistant_mqtt_port_public(select_new_node->state_topic, select_new_node->options[select_new_node->option], 1, 1);
+    }
+    else {
+        HA_LOG_E("MQTT server is diconnenct\r\n");
+    }
+
+    select_list_handle->next = select_new_node;
+    select_new_node->prev = select_list_handle;
+    select_new_node->next = ha_device->entity_select->select_list;
+    ha_device->entity_select->select_list->prev = select_new_node;
+    vPortFree(select_new_node->config_data);
     vPortFree(unique_id);
+    unique_id = NULL;
+}
+
+static int get_ac_type_enum(ha_select_t* select, char* ac_type, int len)
+{
+    if (select==NULL||ac_type==NULL) {
+        HA_LOG_E("params is NULL\r\n");
+        return  -1;
+    }
+    uint8_t i = 0;
+    for (i = 0; i < select->options_numble; i++)
+    {
+        if (!strncmp(select->options[i], ac_type, len)) {
+
+            return i;
+        }
+    }
+    return -1;
 }
 #endif
 /**
@@ -1027,7 +1094,7 @@ ha_event_t homeAssistant_get_command(const char* topic, unsigned short topic_len
         if (switch_cur->next==ha_device->entity_switch->switch_list) break;
         else
             switch_cur = switch_cur->next;
-    }
+}
 #endif
     //查找相应的Light 实体
 #if CONFIG_ENTITY_ENABLE_LIGHT
@@ -1069,7 +1136,7 @@ ha_event_t homeAssistant_get_command(const char* topic, unsigned short topic_len
         }
         if (text_cur->next == ha_device->entity_text->text_list)break;
         else
-            switch_cur = switch_cur->next;
+            text_cur = text_cur->next;
     }
 #endif
 
@@ -1196,6 +1263,28 @@ ha_event_t homeAssistant_get_command(const char* topic, unsigned short topic_len
     }
 
 #endif
+
+#if CONFIG_ENTITY_ENABLE_SELECT
+    ha_select_t* select_cur = ha_device->entity_select->select_list->next;
+    if (!strncmp(topic, select_cur->command_topic, topic_len)) {
+        while (select_cur!=ha_device->entity_select->select_list) {
+
+            // if (select_cur->options_value==NULL)select_cur->options_value = pvPortMalloc(256);
+            // memset(select_cur->options_value, 0, 256);
+            // memcpy(select_cur->options_value, data, data_len);
+            select_cur->option = get_ac_type_enum(select_cur, data, data_len);
+            HA_LOG_D("select_cur->options_value=%s\r\n", select_cur->options[select_cur->option]);
+            event = HA_EVENT_MQTT_COMMAND_SELECT_VALUE;
+            ha_device->entity_select->command_select = select_cur;
+            return event;
+
+            if (select_cur->next == ha_device->entity_select->select_list)break;
+            else
+                select_cur = select_cur->next;
+        }
+    }
+#endif
+
     return event;
 }
 
@@ -1204,6 +1293,7 @@ void update_all_entity_to_homeassistant(void)
 {
     //更新所有switch 实体
     int ret = 0;
+    homeAssistant_device_send_status(HOMEASSISTANT_STATUS_OFFLINE);
 #if CONFIG_ENTITY_ENABLE_SWITCH
 
     ha_sw_entity_t* switch_cur = ha_device->entity_switch->switch_list->next;
@@ -1331,7 +1421,28 @@ void update_all_entity_to_homeassistant(void)
         }
     }
 #endif
-}
+#if CONFIG_ENTITY_ENABLE_SELECT
+    ha_select_t* select_cur = ha_device->entity_select->select_list->next;
+    if (select_cur!=ha_device->entity_select->select_list) {
+        while (select_cur!=ha_device->entity_select->select_list) {
+            homeAssistant_create_select_data(select_cur, homeAssistant_device_create());
+            homeAssistant_mqtt_port_public(select_cur->entity_config_topic, select_cur->config_data, 0, 0);
+            vPortFree(select_cur->config_data);
+            //
+            // if (select_cur->availability_topic!=NULL)
+            //     ret = homeAssistant_mqtt_port_public(select_cur->availability_topic, select_cur->payload_available, 0, 1);
+            // else  ret = homeAssistant_mqtt_port_public(ha_device->availability_topic, ha_device->payload_available, 0, 1);
+            //更新实体状态
+            if (select_cur->options!=NULL) {
+                homeAssistant_device_send_entity_state(ha_device->entity_select->entity_type, select_cur, 0);
+            }
+            select_cur = select_cur->next;
+        }
+    }
+#endif
+    homeAssistant_device_send_status(HOMEASSISTANT_STATUS_ONLINE);
+
+        }
 
 
 
@@ -1459,6 +1570,14 @@ void homeAssistant_device_init(homeAssisatnt_device_t* ha_dev, void(*event_cb)(h
     ha_device->entity_climateHVAC->climateHVAC_list->prev = ha_device->entity_climateHVAC->climateHVAC_list;
     ha_device->entity_climateHVAC->climateHVAC_list->next = ha_device->entity_climateHVAC->climateHVAC_list;
 #endif
+#if CONFIG_ENTITY_ENABLE_SELECT
+    ha_device->entity_select = pvPortMalloc(sizeof(ha_select_list_t));
+    ha_device->entity_select->entity_type = CONFIG_HA_ENTITY_SELECT;
+    ha_device->entity_select->select_list = pvPortMalloc(sizeof(ha_select_t));
+    ha_device->entity_select->select_list->prev = ha_device->entity_select->select_list;
+    ha_device->entity_select->select_list->next = ha_device->entity_select->select_list;
+
+#endif
 
     ha_device->event_cb = event_cb;
     homeAssistant_mqtt_init(ha_device);
@@ -1553,8 +1672,14 @@ void homeAssistant_device_add_entity(char* entity_type, void* ha_entity_list)
         entity_climate_HVAC_add_node(climateHVAC_node);
     }
 #endif
-
-}
+#if CONFIG_ENTITY_ENABLE_SELECT
+    if (!strcmp(entity_type, CONFIG_HA_ENTITY_SELECT)) {
+        HA_LOG_I("HomeAssistant add select entity\r\n");
+        ha_select_t* select_node = (ha_select_t*)ha_entity_list;
+        entity_select_add_node(select_node);
+    }
+#endif
+    }
 
 int homeAssistant_device_send_entity_state(char* entity_type, void* ha_entity_list, unsigned short state)
 {
@@ -1647,8 +1772,18 @@ int homeAssistant_device_send_entity_state(char* entity_type, void* ha_entity_li
         }
     }
 #endif
+
+#if CONFIG_ENTITY_ENABLE_SELECT
+    if (!strcmp(entity_type, CONFIG_HA_ENTITY_SELECT)) {
+        ha_select_t* select_node = (ha_select_t*)ha_entity_list;
+        if (select_node->options!=NULL&& select_node->state_topic!=NULL) {
+            ret_id = homeAssistant_mqtt_port_public(select_node->state_topic, select_node->options[select_node->option], 0, 1);
+        }
+        else HA_LOG_E("select value is null\r\n");
+    }
+#endif
     return ret_id;
-}
+        }
 
 void* homeAssistant_fine_entity(char* entity_type, const char* unique_id)
 {
@@ -1729,7 +1864,15 @@ void* homeAssistant_fine_entity(char* entity_type, const char* unique_id)
         }
     }
 #endif
-
+#if CONFIG_ENTITY_ENABLE_SELECT
+    if (!strcmp(entity_type, CONFIG_HA_ENTITY_SELECT)) {
+        ha_select_t* select_cur = (ha_select_t*)ha_device->entity_select->select_list->next;
+        while (select_cur!=ha_device->entity_select->select_list) {
+            if (!strncmp(select_cur->unique_id, unique_id, strlen(unique_id))) return select_cur;
+            select_cur = select_cur->next;
+        }
+    }
+#endif
     HA_LOG_E("There is no %s entity unique id %s\r\n", entity_type, unique_id);
     return NULL;
-}
+        }

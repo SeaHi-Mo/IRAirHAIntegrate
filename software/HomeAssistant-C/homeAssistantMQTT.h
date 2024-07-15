@@ -26,16 +26,26 @@ typedef enum {
     HA_EVENT_MQTT_DISCONNECT,//服务器断开事件
     HA_EVENT_HOMEASSISTANT_STATUS_ONLINE, //HomeAssisstant 在线事件
     HA_EVENT_HOMEASSISTANT_STATUS_OFFLINE, //HomeAssistant 掉线事件
+#if CONFIG_ENTITY_ENABLE_SWITCH
     HA_EVENT_MQTT_COMMAND_SWITCH,//服务器下发开关命令事件，当在HA操作开关时，会触发这个事件
+#endif
+#if CONFIG_ENTITY_ENABLE_LIGHT
     HA_EVENT_MQTT_COMMAND_LIGHT_SWITCH,//light 灯的开关事件
     HA_EVENT_MQTT_COMMAND_LIGHT_RGB_UPDATE,//light 灯的RGB 颜色下发事件
     HA_EVENT_MQTT_COMMAND_LIGHT_BRIGHTNESS,//light 灯的亮度数据下发事件
+#endif
+#if CONFIG_ENTITY_ENABLE_TEXT
     HA_EVENT_MQTT_COMMAND_TEXT_VALUE,  //服务器下发text内容事件
-
+#endif
+#if CONFIG_ENTITY_ENABLE_CLIMATE_HVAC
     HA_EVENT_MQTT_COMMAND_CLIMATE_HVAC_POWER, //服务器下发的空调开关事件
     HA_EVENT_MQTT_COMMAND_CLIMATE_HVAC_MODES, //设置模式
     HA_EVENT_MQTT_COMMAND_CLIMATE_HVAC_TEMP,  //设置温度
     HA_EVENT_MQTT_COMMAND_CLIMATE_HVAC_FAN_MODES,//设置风力  
+#endif
+#if CONFIG_ENTITY_ENABLE_SELECT
+    HA_EVENT_MQTT_COMMAND_SELECT_VALUE,
+#endif
     HA_EVENT_MQTT_ERROR,
 }ha_event_t;
 
@@ -618,7 +628,7 @@ typedef  struct homeAssisatnt_entity_select {
     char* state_topic;
     char* unique_id;
     char* value_template;
-    char* options_value;
+    int option;
 
     char* entity_config_topic;
     char* config_data;
@@ -730,5 +740,10 @@ int homeAssistant_device_send_entity_state(char* entity_type, void* ha_entity_li
 */
 void* homeAssistant_fine_entity(char* entity_type, const char* unique_id);
 
+/**
+ * @brief 更新所有实体信息
+ *
+*/
+void update_all_entity_to_homeassistant(void);
 #endif
 
