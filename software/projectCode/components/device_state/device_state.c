@@ -70,7 +70,8 @@ static void device_state_task(void* arg)
                 //如果连接信息保存的不一致，则重新保存
                 wifi_info_t flash_wifi_info = { 0 };
                 flash_get_wifi_info(&flash_wifi_info);
-                if (memcmp(flash_wifi_info.ssid, dev_msg->wifi_info.ssid, strlen(dev_msg->wifi_info.ssid))|| memcmp(flash_wifi_info.password, dev_msg->wifi_info.password, strlen(dev_msg->wifi_info.password)))
+                if (memcmp(flash_wifi_info.ssid, dev_msg->wifi_info.ssid, strlen(dev_msg->wifi_info.ssid))||
+                    memcmp(flash_wifi_info.password, dev_msg->wifi_info.password, strlen(dev_msg->wifi_info.password))||(flash_wifi_info.chan_id!=dev_msg->wifi_info.chan_id))
                 {
                     //重新保存新的WiFi信息
                     flash_save_wifi_info(&dev_msg->wifi_info);
@@ -159,6 +160,23 @@ static void device_state_task(void* arg)
 
 }
 
+static void sht30_get_data_callback(sht3x_data_t* sht30_data)
+{
+    blog_info("temperature: %.2f humidity: %d", sht30_data->temperature, sht30_data->humidity);
+    if (ha_dev.mqtt_info.mqtt_connect_status) {
+        ha_sensor_entity_t* sht30_data_temperature = homeAssistant_fine_entity(CONFIG_HA_ENTITY_SENSOR, "th30_t");
+        ha_sensor_entity_t* sht30_data_humidity = homeAssistant_fine_entity(CONFIG_HA_ENTITY_SENSOR, "th30_h");
+        if (sht30_data_temperature->sensor_data==NULL) sht30_data_temperature->sensor_data = pvPortMalloc(5);
+        if (sht30_data_humidity->sensor_data==NULL) sht30_data_humidity->sensor_data = pvPortMalloc(3);
+        memset(sht30_data_temperature->sensor_data, 0, 5);
+        memset(sht30_data_humidity->sensor_data, 0, 3);
+        sprintf((char*)sht30_data_temperature->sensor_data, "%.2f", sht30_data->temperature);
+        sprintf((char*)sht30_data_humidity->sensor_data, "%d", sht30_data->humidity);
+        homeAssistant_device_send_entity_state(CONFIG_HA_ENTITY_SENSOR, sht30_data_temperature, 1);
+        homeAssistant_device_send_entity_state(CONFIG_HA_ENTITY_SENSOR, sht30_data_humidity, 1);
+    }
+}
+
 void device_state_init(void* arg)
 {
     device_queue_handle = xQueueCreate(2, sizeof(dev_msg_t));
@@ -169,7 +187,7 @@ void device_state_init(void* arg)
     // blufi_wifi_init();
     device_led_init();
     device_button_init();
-    // sht30_device_init(SHT30_SINGLE_SAMPLE_NOCLOK_LOW);
+    sht30_device_init(SHT30_PERIODIC_SAMPLE_1_HIGH, sht30_get_data_callback);
 
     if (err == pdPASS) {
         blog_info("\"device_state_task\" is create OK");

@@ -297,7 +297,7 @@ void ir_dvice_init(void)
 
     // bl_uart_init_ex(IR_UART_NUM, 4, 3, cts_pin, rts_pin, 115200,
     //                 dataBits, stopBits, parity);
-    bl_uart_init(IR_UART_NUM, 4, 3, cts_pin, rts_pin, 115200);
+    bl_uart_init(IR_UART_NUM, 22, 20, cts_pin, rts_pin, 115200);
     bl_uart_int_tx_notify_register(IR_UART_NUM, __uart_tx_irq, NULL);
     bl_uart_int_rx_notify_register(IR_UART_NUM, hosal_uart_callback, NULL);
     bl_uart_int_enable(IR_UART_NUM);

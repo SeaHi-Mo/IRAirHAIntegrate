@@ -23,65 +23,73 @@ static dev_msg_t dev_msg = { 0 };
 static int scan_counter;
 bool ble_is_connected = false;
 static bool gl_sta_connected = false;
-static char buff[512] = { 0 };
+static char buff[128] = { 0 };
 
-static char* get_ip_addr_from_custom_data(const char* custom_data)
+static char* get_ip_addr_from_custom_data(const char* server_type, const char* custom_data)
 {
-    char* data = custom_data;
-    if (data==NULL) {
-        blog_error("data is NULL");
+    if (custom_data==NULL) {
+        blog_error("custom_data is NULL");
         return NULL;
     }
-    cJSON* root = cJSON_Parse(data);
-    if (root==NULL) {
-        blog_error("%s is't json", data);
+    char* cjson_root = custom_data;
+    cJSON* root = cJSON_Parse(cjson_root);
+
+    if (root==NULL)
+    {
+        blog_error("%s is't json data", cjson_root);
         cJSON_Delete(root);
         return NULL;
     }
-    cJSON* addr_type = cJSON_GetObjectItem(root, "mqtt");
-    if (addr_type==NULL) {
-        blog_error("%s not have \"mqtt\" project", root);
+    cJSON* add_type = cJSON_GetObjectItem(root, server_type);
+    if (add_type==NULL)
+    {
+        blog_error("%s not \"%s\" project ", cjson_root, server_type);
         cJSON_Delete(root);
         return NULL;
     }
-    cJSON* addr = cJSON_GetObjectItem(addr_type, "adrr");
-    if (addr==NULL) {
-        blog_error("%s not have \"addr\" project", addr_type);
+    cJSON* addr = cJSON_GetObjectItem(add_type, "addr");
+    if (addr==NULL)
+    {
+        blog_error("%s not \"addr\" project ", cjson_root);
         cJSON_Delete(root);
         return NULL;
     }
-    memset(buff, 0, 512);
+    memset(buff, 0, 128);
     strcpy(buff, addr->valuestring);
     cJSON_Delete(root);
+
     return buff;
 }
 
-static uint16_t get_port_from_custom_data(const char* custom_data)
+static uint16_t get_port_from_custom_data(const char* server_type, const char* custom_data)
 {
-    char* data = custom_data;
-    if (data==NULL) {
-        blog_error("data is NULL");
-        return 0;
+    if (custom_data==NULL) {
+        blog_error("custom_data is NULL");
+        return NULL;
     }
-    cJSON* root = cJSON_Parse(data);
-    if (root==NULL) {
-        blog_error("%s is't json", data);
+    char* cjson_root = custom_data;
+    cJSON* root = cJSON_Parse(cjson_root);
+    if (root==NULL)
+    {
+        blog_error("%s is't json data", cjson_root);
         cJSON_Delete(root);
-        return 0;
+        return NULL;
     }
-    cJSON* addr_type = cJSON_GetObjectItem(root, "mqtt");
-    if (addr_type==NULL) {
-        blog_error("%s not have \"mqtt\" project", root);
+    cJSON* add_type = cJSON_GetObjectItem(root, server_type);
+    if (add_type==NULL)
+    {
+        blog_error("%s not \"%s\" project ", cjson_root, server_type);
         cJSON_Delete(root);
-        return 0;
+        return NULL;
     }
-    cJSON* _port = cJSON_GetObjectItem(addr_type, "port");
-    if (_port==NULL) {
-        blog_error("%s not have \"port\" project", addr_type);
+    cJSON* port_p = cJSON_GetObjectItem(add_type, "port");
+    if (port_p==NULL)
+    {
+        blog_error("%s not \"port\" project ", cjson_root);
         cJSON_Delete(root);
-        return 0;
+        return NULL;
     }
-    uint16_t port = atoi(_port->valuestring);
+    uint16_t port = atoi(port_p->valuestring);
     cJSON_Delete(root);
     return port;
 }
@@ -257,8 +265,8 @@ static void example_event_callback(_blufi_cb_event_t event, _blufi_cb_param_t* p
             // echo
             axk_blufi_send_custom_data(param->custom_data.data, param->custom_data.data_len);
             ha_mqtt_info_t mqtt_info;
-            mqtt_info.mqtt_host = get_ip_addr_from_custom_data((char*)param->custom_data.data);
-            mqtt_info.port = get_port_from_custom_data((char*)param->custom_data.data);
+            mqtt_info.mqtt_host = get_ip_addr_from_custom_data("mqtt", (char*)param->custom_data.data);
+            mqtt_info.port = get_port_from_custom_data("mqtt", (char*)param->custom_data.data);
             flash_save_mqtt_info(&mqtt_info);
             break;
         case AXK_BLUFI_EVENT_RECV_USERNAME:

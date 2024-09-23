@@ -143,12 +143,16 @@ static void event_cb_wifi_event(input_event_t* event, void* private_data)
             memset(dev_msg.wifi_info.ipv4_addr, 0, 16);
             uint32_t  gw, mask;
             wifi_mgmr_sta_ip_get(&dev_msg.wifi_info.addr_ip, &gw, &mask);
+            wifi_mgmr_sta_connect_ind_stat_info_t wifi_info;
+            wifi_mgmr_sta_connect_ind_stat_get(&wifi_info);
+            dev_msg.wifi_info.band = wifi_info.chan_band;
+            dev_msg.wifi_info.chan_id = wifi_info.chan_id;
+            strcpy(dev_msg.wifi_info.ssid, wifi_info.ssid);
 
             if (dev_msg.wifi_info.addr_ip!=0) {
                 strcpy(dev_msg.wifi_info.ipv4_addr, ip4addr_ntoa(&dev_msg.wifi_info.addr_ip));
             }
             device_state_update(true, &dev_msg); //WiFi 准备OK,等待连接
-
         }
         break;
         case CODE_WIFI_ON_PROV_SSID:

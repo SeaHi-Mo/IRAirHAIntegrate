@@ -58,7 +58,23 @@ void ha_event_cb(ha_event_t event, homeAssisatnt_device_t* dev)
             };
             select.option = ac_type;
 
+            static ha_sensor_entity_t th30_t = {
+                .name = "温度",
+                .unique_id = "th30_t",
+                .device_class = Class_temperature,
+                .unit_of_measurement = "℃",
+            };
+
+            static ha_sensor_entity_t th30_h = {
+                .name = "湿度",
+                .unique_id = "th30_h",
+                .device_class = Class_humidity,
+                .unit_of_measurement = "%",
+
+            };
             homeAssistant_device_add_entity(CONFIG_HA_ENTITY_SELECT, &select);
+            homeAssistant_device_add_entity(CONFIG_HA_ENTITY_SENSOR, &th30_t);
+            homeAssistant_device_add_entity(CONFIG_HA_ENTITY_SENSOR, &th30_h);
             homeAssistant_device_send_status(HOMEASSISTANT_STATUS_ONLINE);
             dev_msg.device_state = DEVICE_STATE_HOMEASSISTANT_CONNECT;
             // homeAssistant_device_send_entity_state(CONFIG_HA_ENTITY_CLIMATE_HVAC, &AC1, 0);

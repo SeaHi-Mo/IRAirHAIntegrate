@@ -48,8 +48,14 @@ bool flash_save_wifi_info(void* value)
         result = ef_set_bytes(flash_key[FLASH_WIFI_PMK], wifi_info->pmk, strlen(wifi_info->pmk));
     if (wifi_info->band)
         result = ef_set_bytes(flash_key[FLASH_WIFI_BAND], (char*)&wifi_info->band, sizeof(wifi_info->band));
-    if (wifi_info->chan_id)
-        result = ef_set_bytes(flash_key[FLASH_WIFI_CHAN_ID], (char*)&wifi_info->chan_id, sizeof(wifi_info->chan_id));
+    if (wifi_info->chan_id) {
+        char* chan_id = pvPortMalloc(2);
+        memset(chan_id, 0, 2);
+        sprintf(chan_id, "%d", wifi_info->chan_id);
+        result = ef_set_bytes(flash_key[FLASH_WIFI_CHAN_ID], chan_id, strlen(chan_id));
+        vPortFree(chan_id);
+    }
+
 
     return result == EF_NO_ERR ? true : false;
 }
@@ -71,6 +77,11 @@ int flash_get_wifi_info(void* value)
     result = ef_get_bytes(flash_key[FLASH_WIFI_PASSWORD], wifi_info->password, 64);
     wifi_info->password[result] = '\0';
     result = ef_get_bytes(flash_key[FLASH_WIFI_PMK], wifi_info->pmk, 64);
+    char* chan_id = pvPortMalloc(2);
+    memset(chan_id, 0, 2);
+    result = ef_get_bytes(flash_key[FLASH_WIFI_CHAN_ID], chan_id, 2);
+    wifi_info->chan_id = atoi(chan_id);
+    vPortFree(chan_id);
     return result;
 
 }

@@ -55,6 +55,8 @@ typedef struct
     int humidity;
 }sht3x_data_t;
 
-void sht30_device_init(sht03_sample_t sample_config);
+typedef void(*sht30_get_data_cb_t)(sht3x_data_t*);
+
+void sht30_device_init(sht03_sample_t sample_config, sht30_get_data_cb_t sht30_get_data_cb);
 sht3x_data_t* sht30_get_data(void);
 #endif

@@ -24,7 +24,7 @@ static bool sht3x_is_single_sample = false;
 static xTimerHandle sht30_timer;
 static sht3x_data_t sht30_data;
 static sht03_sample_t sht30_sample;
-
+static sht30_get_data_cb_t sht30_cb;
 #pragma pack(1)
 struct sht3x_data
 {
@@ -85,12 +85,14 @@ static  void vTimerCallback_sht30(TimerHandle_t xTimer)
 
     }
     blog_debug("temperature: %.2f humidity: %d\r\n", sht30_data.temperature, sht30_data.humidity);
+    sht30_cb(&sht30_data);
 }
 
-void sht30_device_init(sht03_sample_t sample_config)
+void sht30_device_init(sht03_sample_t sample_config, sht30_get_data_cb_t sht30_get_data_cb)
 {
     hosal_i2c_init(&sht_i2c0);
     sht30_sample = sample_config;
+    sht30_cb = sht30_get_data_cb;
     uint16_t _timers = 0;
     switch (sample_config)
     {
@@ -130,9 +132,10 @@ void sht30_device_init(sht03_sample_t sample_config)
             return;
             break;
     }
-    sht30_timer = xTimerCreate("sht30 getdata", pdMS_TO_TICKS(_timers+10), pdTRUE, 0, vTimerCallback_sht30);
+    sht30_timer = xTimerCreate("sht30 getdata", pdMS_TO_TICKS(_timers), sht3x_is_single_sample?pdFALSE:pdTRUE, 0, vTimerCallback_sht30);
     uint8_t command[2] = { sample_config >>8, sample_config&0xff };
     hosal_i2c_master_send(&sht_i2c0, SHT30_I2C_ADDR, command, sizeof command, 100);
+    vTaskDelay(pdMS_TO_TICKS(50));
     xTimerStart(sht30_timer, pdMS_TO_TICKS(100));
 
 }
