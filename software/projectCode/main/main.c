@@ -27,18 +27,17 @@
 void main()
 {
     bl_sys_init();
-
+    blog_set_level_log_component(BLOG_LEVEL_DEBUG, "main");
     easyflash_init();
     device_state_init(NULL);
     blog_info("[OS] Starting TCP/IP Stack...");
     tcpip_init(NULL, NULL);
     blog_info("[OS] proc_main_entry task...");
 
-
     while (1)
     {
         blog_debug("HeapSize=%d ", xPortGetFreeHeapSize());
-        vTaskDelay(pdMS_TO_TICKS(3000));
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
 
 }

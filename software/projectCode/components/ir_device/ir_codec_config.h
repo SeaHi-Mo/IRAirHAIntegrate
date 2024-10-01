@@ -23,7 +23,7 @@ typedef struct ir_darta_config {
     ir_uint16_t guided_code_high_time;   //引导码的高电平时间
     ir_uint16_t data_1_code_low_time;    //数据码"1"的低电平的时间
     ir_uint16_t data_1_code_high_time;   //数据码 “1” 的高电平时间
-    ir_uint16_t data_0_code_low_time;    //数据码"1"的低电平的时间
+    ir_uint16_t data_0_code_low_time;    //数据码"0"的低电平的时间
     ir_uint16_t data_0_code_high_time;   //数据码 “0” 的高电平时间
     ir_uint8_t data_code_numble;         //数据码的长度
 

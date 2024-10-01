@@ -18,18 +18,18 @@
 ac_dev_t ac_dev[] = {
     {
          .name = "Midea",
-        .codec_fig = {4500,4500,550,1700,550,560,6,550,5200,1},
-        .param.temp_data = {0,1,3,2,6,7,5,4,12,13,9,8,10,11,14},
-        .ir_data = {0xb2,0x4d,0xbf,0x40,0x40,0xbf},
-        .ir_data_off = {0xb2,0x4d,0x7b,0x84,0xe0,0x1f},
+        .codec_fig = {4500,4500,550,1700,550,560,6,550,5200,1},//编码特性
+         .ir_data = {0xb2,0x4d,0xbf,0x40,0x40,0xbf}, //默认开机码
+        .ir_data_off = {0xb2,0x4d,0x7b,0x84,0xe0,0x1f},//关机代码
+        .param.temp_data = {0,1,3,2,6,7,5,4,12,13,9,8,10,11,14},//
         .param.fan_mode = AC_FAN_MODE_AUTO,
         .param.fan_mode_data = {0B101,0B100,0B010,0B001,0b000}, //自动风，弱风，中风，强风,固定风
         .param.modes_data = {0B10,0B00,0B11,0B01,0B01},//自动模式、制冷、制热，抽湿、送风
-        .param.modes = 0,
-        .param.temperature = 24.0,
-        .ir_data_len = 6,
-        .max_temp = 30.0,
-        .min_temp = 17.0
+        .param.modes = 0,//默认模式为自动
+        .param.temperature = 24.0, //默认温度
+        .ir_data_len = 6,   //红外数据长度
+        .max_temp = 30.0,  //最大温度
+        .min_temp = 17.0  //最小温度
     },
     {
         .name = "TCL",
@@ -41,6 +41,12 @@ ac_dev_t ac_dev[] = {
         .param.modes = 1,
         .max_temp = 30.0,
         .min_temp = 16.0,
+    },
+    {
+        .name = "Gree",
+        .codec_fig = {9000,4500,526,1660,526,572,4,580,20000,2},
+        .ir_data = {0x92,0x90,0x04,0x0A,0b010,0x80,0x40,0x00,0x07},
+
     },
 };
 
@@ -116,7 +122,7 @@ char* ir_data_decode(char* ir_data, ir_uint16_t ir_data_len, ir_codec_cfg_t* dec
                 *data_temp <<= 1;
             }
         }
-    }
+}
 #endif
     return data_buff;
 
