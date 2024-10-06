@@ -66,7 +66,9 @@ typedef enum {
     IR_DEVICE_CMD_READ_FLASH_CODE,     /*  读取内部存储编码 */
     IR_DEVICE_CMD_GO_CODE_LEARN,      /* 进入外部存储编码学习 */
     IR_DEVICE_CMD_EXIT_CODE_LEARN,    /*  退出外部存储编码学习 */
-    IR_DEVICE_CMD_SEND_MIDEA_CODE,         /*  发送外部编码 开启*/
+    IR_DEVICE_CMD_SEND_MIDEA_CODE,         /*  发送外部编码 美的 开启*/
+    IR_DEVICE_CMD_SEND_TCL_CODE,         /*  发送外部编码 TCL 开启*/
+    IR_DEVICE_CMD_SEND_GREE_CODE,         /*  发送外部编码 格力 开启*/
 }ir_dev_cmd_t;
 
 typedef enum ir_dev_type {

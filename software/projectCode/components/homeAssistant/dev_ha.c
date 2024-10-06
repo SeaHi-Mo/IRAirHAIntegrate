@@ -27,7 +27,6 @@ void ha_event_cb(ha_event_t event, homeAssisatnt_device_t* dev)
             HA_LOG_I("<<<<<<<<<<  HA_EVENT_MQTT_CONNECED AC TYPE=%d\r\n", ac_type);
             static ha_climateHVAC_t AC1 = {
                 .unique_id = "AC_1",
-
             };
             switch (ac_type)
             {
@@ -41,17 +40,22 @@ void ha_event_cb(ha_event_t event, homeAssisatnt_device_t* dev)
                     AC1.max_temp = 30.0;
                     AC1.min_temp = 16.0;
                     break;
+                case IR_DEVICE_TYPE_AC_BRAND_GREE:
+                    AC1.name = "格力空调";
+                    AC1.max_temp = 30.0;
+                    AC1.min_temp = 16.0;
+                    break;
                 default:
                     break;
             }
             homeAssistant_device_add_entity(CONFIG_HA_ENTITY_CLIMATE_HVAC, &AC1);
 
-            static char* options[] = { "美的","TCL" };
+            static char* options[] = { "美的","TCL","格力" };
             static ha_select_t select = {
                 .name = "选择空调品牌",
                 .unique_id = "select1",
                 .options = options,
-                .options_numble = 2,
+                .options_numble = 3,
                 .optimistic = true,
                 .enabled_by_default = true,
 

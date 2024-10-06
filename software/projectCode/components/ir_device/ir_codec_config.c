@@ -12,7 +12,7 @@
 #include "stdlib.h"
 #include "string.h"
 #include "ir_codec_config.h"
-
+#include "ir_device.h"
 #define IR_DATA_SIZE_MAX 512
 
 ac_dev_t ac_dev[] = {
@@ -42,11 +42,21 @@ ac_dev_t ac_dev[] = {
         .max_temp = 30.0,
         .min_temp = 16.0,
     },
-    {
+    { //格力空调码
         .name = "Gree",
-        .codec_fig = {9000,4500,526,1660,526,572,4,580,20000,2},
-        .ir_data = {0x92,0x90,0x04,0x0A,0b010,0x80,0x40,0x00,0x07},
+        .codec_fig = {9000,4500,526,1660,526,572,4,580,20000,1},
 
+        .ir_data = {0x90,0x90,0x04,0x0A,0x00,0x02,0x00,0x00},//默认开机码（不包括3位固定码），制冷模式， 风速自动 风向自动 温度25
+        .ir_data_len = 8,
+        .ir_data_off = {0x80,0x89,0x04,0x0A,0x00,0x02,0x00,0x01},//默认关机码
+        .param.temp_data = {0b0,0b1000,0b0100,0b1100,0b0010,0b1010,0b0110,0b1110,0b0001,0b1001,0b0101,0b1101,0b0011,0b1011,0b0111},//温度数据码
+        .param.fan_mode = AC_FAN_MODE_AUTO,
+        .param.fan_mode_data = {0B00,0B10,0B01,0B11},
+        .param.temperature = 25.0,
+        .param.modes = 1,
+        .param.modes_data = {0B00,0B100,0B010,0B110,0B001},
+        .max_temp = 30.0,
+        .max_temp = 16.0
     },
 };
 
@@ -126,7 +136,7 @@ char* ir_data_decode(char* ir_data, ir_uint16_t ir_data_len, ir_codec_cfg_t* dec
 #endif
     return data_buff;
 
-}
+    }
 /**
  * @brief
  *
@@ -134,7 +144,7 @@ char* ir_data_decode(char* ir_data, ir_uint16_t ir_data_len, ir_codec_cfg_t* dec
  * @param ac_device
  * @return ir_uint16_t
 */
-ir_uint16_t ir_data_encode(ac_dev_t* ac_device)
+ir_uint16_t ir_data_encode(ir_int8_t _acType, ac_dev_t* ac_device)
 {
     if (ac_device==NULL) {
         printf("[%s:%d] params is NULL\r\n", __func__, __LINE__);
@@ -145,40 +155,205 @@ ir_uint16_t ir_data_encode(ac_dev_t* ac_device)
     ac_device->cmd_data.cmd_date_len = 0;
     //引导码
     char* ir_data_buff = ac_device->ac_state?ac_device->ir_data:ac_device->ir_data_off;
-
-    ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ((ac_device->codec_fig.guided_code_low_time/8)%128)+128;
-
-    ac_device->cmd_data.cmd_date_len++;
-    ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = (ac_device->codec_fig.guided_code_low_time/8)/128;
-    ac_device->cmd_data.cmd_date_len++;
-    ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ((ac_device->codec_fig.guided_code_high_time/8)%128)+128;
-    ac_device->cmd_data.cmd_date_len++;
-    ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = (ac_device->codec_fig.guided_code_high_time/8)/128;
-
-    for (size_t i = 0;i<ac_device->ir_data_len; i++)
     {
+        ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ((ac_device->codec_fig.guided_code_low_time/8)%128)+128;
+        ac_device->cmd_data.cmd_date_len++;
+        ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = (ac_device->codec_fig.guided_code_low_time/8)/128;
+        ac_device->cmd_data.cmd_date_len++;
+        ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ((ac_device->codec_fig.guided_code_high_time/8)%128)+128;
+        ac_device->cmd_data.cmd_date_len++;
+        ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = (ac_device->codec_fig.guided_code_high_time/8)/128;
+    }
 
-        for (size_t j = 8; j >0; j--)
+    switch (_acType)
+    {
+        case IR_DEVICE_TYPE_AC_BRAND_MIDEA:
+        case IR_DEVICE_TYPE_AC_BRAND_TCL:
         {
-            //识别1
-            ac_device->cmd_data.cmd_date_len++;
-            if ((ir_data_buff[i]>>(j-1)&0x01)) {
-                ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ac_device->codec_fig.data_1_code_low_time/8;
-                ac_device->cmd_data.cmd_date_len++;
-                ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = (ac_device->codec_fig.data_1_code_high_time/8)%128+128;
-
-                ac_device->cmd_data.cmd_date_len++;
-                ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = (ac_device->codec_fig.data_1_code_high_time/8)/128;
-            }
-            else
+            for (size_t i = 0;i<ac_device->ir_data_len; i++)
             {
+                //从高位开始识别0和1
+                for (size_t j = 8; j >0; j--)
+                {
+                    //识别1
+                    ac_device->cmd_data.cmd_date_len++;
+                    //识别为1时
+                    if ((ir_data_buff[i]>>(j-1)&0x01)) {
+                        ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ac_device->codec_fig.data_1_code_low_time/8;//数据1时的电平时间
+                        ac_device->cmd_data.cmd_date_len++;
+
+                        ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = (ac_device->codec_fig.data_1_code_high_time/8)%128+128;//数据1时的高电平时间
+
+                        ac_device->cmd_data.cmd_date_len++;
+                        ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = (ac_device->codec_fig.data_1_code_high_time/8)/128;
+                    }
+                    else
+                    {
+                        ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ac_device->codec_fig.data_0_code_low_time/8;
+                        ac_device->cmd_data.cmd_date_len++;
+                        ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ac_device->codec_fig.data_0_code_high_time/8;
+                    }
+                }
+            }
+
+            if (ac_dev->codec_fig.apart_code_numble>0) {
+                for (size_t i = 0; i < ac_dev->codec_fig.apart_code_numble; i++)
+                {
+                    ac_device->cmd_data.cmd_date_len++;
+
+                    ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ac_device->codec_fig.apart_code_low_time/8;
+                    ac_device->cmd_data.cmd_date_len++;
+                    ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ((ac_device->codec_fig.apart_code_high_time/8)%128)+128;
+                    ac_device->cmd_data.cmd_date_len++;
+                    ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = (ac_device->codec_fig.apart_code_high_time/8)/128;
+                    ac_device->cmd_data.cmd_date_len++;
+                    ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ((ac_device->codec_fig.guided_code_low_time/8)%128)+128;
+                    ac_device->cmd_data.cmd_date_len++;
+                    ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = (ac_device->codec_fig.guided_code_low_time/8)/128;
+                    ac_device->cmd_data.cmd_date_len++;
+                    ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ((ac_device->codec_fig.guided_code_high_time/8)%128)+128;
+                    ac_device->cmd_data.cmd_date_len++;
+                    ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = (ac_device->codec_fig.guided_code_high_time/8)/128;
+                    //生成最后数据码的波形数据
+                    for (size_t i = 0; i<ac_device->ir_data_len; i++)
+                    {
+                        for (size_t j = 8; j >0; j--)
+                        {
+                            //识别1 
+                            ac_device->cmd_data.cmd_date_len++;
+                            if ((ir_data_buff[i]>>(j-1)&0x01)) {
+
+                                ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ac_device->codec_fig.data_1_code_low_time/8;
+                                ac_device->cmd_data.cmd_date_len++;
+                                ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = (((ac_device->codec_fig.data_1_code_high_time)/8)%128)+128;
+                                ac_device->cmd_data.cmd_date_len++;
+                                ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ((ac_device->codec_fig.data_1_code_high_time)/8)/128;
+                            }
+                            else
+                            {
+                                ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ac_device->codec_fig.data_0_code_low_time/8;
+
+                                ac_device->cmd_data.cmd_date_len++;
+                                ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ac_device->codec_fig.data_0_code_high_time/8;
+
+                            }
+
+                        }
+
+                    }
+                }
+
+            }
+            ac_device->cmd_data.cmd_date_len++;
+            ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ac_device->codec_fig.data_0_code_low_time/8;
+            ac_device->cmd_data.cmd_date_len++;
+        }
+        /* code */
+        break;
+        case IR_DEVICE_TYPE_AC_BRAND_GREE:
+        {
+            //开始配置前32位数据码
+            for (size_t i = 0; i < ac_device->ir_data_len/2; i++)
+            {
+                //从高位开始识别0和1
+                for (size_t j = 8; j >0; j--)
+                {
+                    //识别1
+                    ac_device->cmd_data.cmd_date_len++;
+                    //识别为1时
+                    if ((ir_data_buff[i]>>(j-1)&0x01)) {
+                        ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ac_device->codec_fig.data_1_code_low_time/8;//数据1时的电平时间
+                        ac_device->cmd_data.cmd_date_len++;
+
+                        ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = (ac_device->codec_fig.data_1_code_high_time/8)%128+128;//数据1时的高电平时间
+
+                        ac_device->cmd_data.cmd_date_len++;
+                        ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = (ac_device->codec_fig.data_1_code_high_time/8)/128;
+                    }
+                    else
+                    {
+                        ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ac_device->codec_fig.data_0_code_low_time/8;
+                        ac_device->cmd_data.cmd_date_len++;
+                        ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ac_device->codec_fig.data_0_code_high_time/8;
+                    }
+                }
+            }
+            //添加后三位数据
+            /* 低电平*/
+            {
+                ac_device->cmd_data.cmd_date_len++;
                 ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ac_device->codec_fig.data_0_code_low_time/8;
                 ac_device->cmd_data.cmd_date_len++;
                 ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ac_device->codec_fig.data_0_code_high_time/8;
             }
+            /* 高电平*/
+            {
+                ac_device->cmd_data.cmd_date_len++;
+                ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ac_device->codec_fig.data_1_code_low_time/8;//数据1时的电平时间
+                ac_device->cmd_data.cmd_date_len++;
+
+                ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = (ac_device->codec_fig.data_1_code_high_time/8)%128+128;//数据1时的高电平时间
+
+                ac_device->cmd_data.cmd_date_len++;
+                ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = (ac_device->codec_fig.data_1_code_high_time/8)/128;
+            }
+            /*低电平*/
+            {
+                ac_device->cmd_data.cmd_date_len++;
+                ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ac_device->codec_fig.data_0_code_low_time/8;
+                ac_device->cmd_data.cmd_date_len++;
+                ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ac_device->codec_fig.data_0_code_high_time/8;
+            }
+            //连接码
+            ac_device->cmd_data.cmd_date_len++;
+            ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ac_device->codec_fig.apart_code_low_time/8;
+            ac_device->cmd_data.cmd_date_len++;
+            ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ((ac_device->codec_fig.apart_code_high_time/8)%128)+128;
+            ac_device->cmd_data.cmd_date_len++;
+            ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = (ac_device->codec_fig.apart_code_high_time/8)/128;
+
+            //剩下的32位数据码
+            for (size_t i = 4; i < ac_device->ir_data_len; i++)
+            {
+                //从高位开始识别0和1
+                for (size_t j = 8; j >0; j--)
+                {
+                    //识别1
+                    ac_device->cmd_data.cmd_date_len++;
+                    //识别为1时
+                    if ((ir_data_buff[i]>>(j-1)&0x01)) {
+                        ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ac_device->codec_fig.data_1_code_low_time/8;//数据1时的电平时间
+                        ac_device->cmd_data.cmd_date_len++;
+
+                        ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = (ac_device->codec_fig.data_1_code_high_time/8)%128+128;//数据1时的高电平时间
+
+                        ac_device->cmd_data.cmd_date_len++;
+                        ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = (ac_device->codec_fig.data_1_code_high_time/8)/128;
+                    }
+                    else
+                    {
+                        ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ac_device->codec_fig.data_0_code_low_time/8;
+                        ac_device->cmd_data.cmd_date_len++;
+                        ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ac_device->codec_fig.data_0_code_high_time/8;
+                    }
+                }
+            }
+            //尾部加上连接码
+            ac_device->cmd_data.cmd_date_len++;
+            ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ac_device->codec_fig.apart_code_low_time/8;
+            ac_device->cmd_data.cmd_date_len++;
+            ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ((ac_device->codec_fig.apart_code_high_time/8)%128)+128;
+            ac_device->cmd_data.cmd_date_len++;
+            ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = (ac_device->codec_fig.apart_code_high_time/8)/128;
+            ac_device->cmd_data.cmd_date_len++;
         }
+        break;
+        default:
+            break;
     }
+
     //配置分隔码
+#if 0
     if (ac_dev->codec_fig.apart_code_numble>0) {
         for (size_t i = 0; i < ac_dev->codec_fig.apart_code_numble; i++)
         {
@@ -197,11 +372,9 @@ ir_uint16_t ir_data_encode(ac_dev_t* ac_device)
             ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ((ac_device->codec_fig.guided_code_high_time/8)%128)+128;
             ac_device->cmd_data.cmd_date_len++;
             ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = (ac_device->codec_fig.guided_code_high_time/8)/128;
-
             //生成最后数据码的波形数据
             for (size_t i = 0; i<ac_device->ir_data_len; i++)
             {
-
                 for (size_t j = 8; j >0; j--)
                 {
                     //识别1 
@@ -216,7 +389,6 @@ ir_uint16_t ir_data_encode(ac_dev_t* ac_device)
                     }
                     else
                     {
-
                         ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ac_device->codec_fig.data_0_code_low_time/8;
 
                         ac_device->cmd_data.cmd_date_len++;
@@ -227,13 +399,12 @@ ir_uint16_t ir_data_encode(ac_dev_t* ac_device)
                 }
 
             }
-        }
+}
 
     }
+#endif
     //  ac_device->cmd_data.cmd_date_len++;
-    ac_device->cmd_data.cmd_date_len++;
-    ac_device->cmd_data.data[ac_device->cmd_data.cmd_date_len] = ac_device->codec_fig.data_0_code_low_time/8;
-    ac_device->cmd_data.cmd_date_len++;
+
     return  ac_device->cmd_data.cmd_date_len;
 }
 

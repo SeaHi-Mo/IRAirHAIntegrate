@@ -73,10 +73,11 @@ typedef struct ac_device {
     char ir_data_off[16];   //空调固定的关闭码
     ir_uint8_t ac_state;
     ir_uint8_t ir_data_len;
+
     char* name;          //空调厂家名称
 }ac_dev_t;
 
 extern ac_dev_t ac_dev[];
 
-ir_uint16_t ir_data_encode(ac_dev_t* ac_device);
+ir_uint16_t ir_data_encode(ir_int8_t _acType, ac_dev_t* ac_device);
 #endif

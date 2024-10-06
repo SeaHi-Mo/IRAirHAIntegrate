@@ -29,6 +29,20 @@ static ir_dev_t ir_dev;
 
 extern char tcl_ir_code[][16];
 
+// 逆序二进制数的函数  格力校验码使用
+static ir_uint8_t reverseBinary(ir_uint8_t* binary)
+{
+    if (binary==NULL) return 0;
+    int length = strlen((char*)binary);
+    for (int i = 0; i < length / 2; i++) {
+        // 交换字符  
+        char temp = binary[i];
+        binary[i] = binary[length - 1 - i];
+        binary[length - 1 - i] = temp;
+    }
+    return atoi((char*)binary);
+}
+
 static dev_cmd_t* create_ir_cmd(ir_dev_type_t ir_dev_type, ir_dev_cmd_t ir_dev_cmd)
 {
     dev_cmd_t* ir_cmd_data = &ir_cmd;
@@ -203,6 +217,27 @@ static dev_cmd_t* create_ir_cmd(ir_dev_type_t ir_dev_type, ir_dev_cmd_t ir_dev_c
             goto __exit;
         }
         break;
+        case IR_DEVICE_CMD_SEND_TCL_CODE:
+        {
+            ir_dev.ac_dev = &ac_dev[ir_dev_type];
+            ir_cmd_data->data[2] = 0x00;
+            ir_cmd_data->data[4] = IR_CMD_SEND_LEARN_CODE_BYTE;
+            uint16_t _data_sum = ir_cmd_data->data[3]+ ir_cmd_data->data[4];
+            uint16_t i = 0;
+            for (i = 0; i < ir_dev.ac_dev->cmd_data.cmd_date_len; i++)
+            {
+
+                ir_cmd_data->data[5+i] = ir_dev.ac_dev->cmd_data.data[i];
+                _data_sum += ir_dev.ac_dev->cmd_data.data[i];
+            }
+            ir_cmd_data->data[i+5] = _data_sum%256;
+            ir_cmd_data->data[i+6] = IR_DEVICE_DATA_END;
+            ir_cmd_data->cmd_date_len = i+7;
+            ir_cmd_data->data[1] = ir_cmd_data->cmd_date_len&0xff;
+            ir_cmd_data->data[2] = ir_cmd_data->cmd_date_len>>8;
+            goto __exit;
+        }
+        break;
         default:
             break;
     }
@@ -324,7 +359,9 @@ void ir_codec_start_learn(void)
     dev_cmd_t* start_code = create_ir_cmd(IR_DEVICE_TYPE_NONE, IR_DEVICE_CMD_GO_CODE_LEARN);
     HAL_at_uart_send(start_code->data, start_code->cmd_date_len);
 }
-
+/**
+ *
+ */
 void ir_codec_config_set_temperature(int ac_brand_type, float temperature)
 {
     ir_dev.ac_dev = &ac_dev[ac_brand_type];
@@ -345,15 +382,15 @@ void ir_codec_config_set_temperature(int ac_brand_type, float temperature)
         //美的空调的数据
         case IR_DEVICE_TYPE_AC_BRAND_MIDEA:
         {
-            ir_uint8_t temp_hex = 0;
-            ir_uint8_t _temp_hex = (ir_uint8_t)ir_dev.ac_dev->param.temperature-ir_dev.ac_dev->min_temp;
+            ir_uint8_t temp_hex = 0;//
+            ir_uint8_t _temp_hex = (ir_uint8_t)ir_dev.ac_dev->param.temperature-ir_dev.ac_dev->min_temp;//分配温度的16进制值
 
-            temp_hex = ir_dev.ac_dev->param.temp_data[(uint8_t)(ir_dev.ac_dev->param.temperature-ir_dev.ac_dev->min_temp)];
+            temp_hex = ir_dev.ac_dev->param.temp_data[(uint8_t)(ir_dev.ac_dev->param.temperature-ir_dev.ac_dev->min_temp)];//温度数据=设置的温度-最低温度
             temp_hex <<= 4;
 
-            ir_dev.ac_dev->ir_data[4] = ir_dev.ac_dev->ir_data[4]&0x0f;
-            ir_dev.ac_dev->ir_data[4] += temp_hex;
-            ir_dev.ac_dev->ir_data[5] = ir_dev.ac_dev->ir_data[4]^0xff;
+            ir_dev.ac_dev->ir_data[4] = ir_dev.ac_dev->ir_data[4]&0x0f;//屏蔽低四位数据 C
+            ir_dev.ac_dev->ir_data[4] += temp_hex;//加入温度数据 C
+            ir_dev.ac_dev->ir_data[5] = ir_dev.ac_dev->ir_data[4]^0xff;// 温度的反码
             blog_debug_hexdump("Midea CODE", (uint8_t*)ir_dev.ac_dev->ir_data, ir_dev.ac_dev->ir_data_len);
         }
         break;
@@ -370,13 +407,35 @@ void ir_codec_config_set_temperature(int ac_brand_type, float temperature)
             blog_debug_hexdump("TCL CODE", (uint8_t*)ir_dev.ac_dev->ir_data, ir_dev.ac_dev->ir_data_len);
         }
         break;
+        case IR_DEVICE_TYPE_AC_BRAND_GREE:
+        {
+            //获取被设置的温度
+            ir_uint8_t temp_hex = 0;
+            ir_uint8_t _temp_hex = (ir_uint8_t)ir_dev.ac_dev->param.temperature-ir_dev.ac_dev->min_temp;
+            //取温度数据
+            temp_hex = ir_dev.ac_dev->param.temp_data[(uint8_t)(ir_dev.ac_dev->param.temperature-ir_dev.ac_dev->min_temp)];
+            temp_hex <<= 4;//温度数据向左移到高4位
+            ir_dev.ac_dev->ir_data[1] = ir_dev.ac_dev->ir_data[1]&0x0f;//屏蔽低四位数据 C
+            ir_dev.ac_dev->ir_data[1] += temp_hex;//加入温度数据 C
+            /* 计算校验值*/
+            //获取校验码值得最后四位
+            ir_uint8_t gree_Check = ((ir_dev.ac_dev->ir_data[0]&0xe0)-1)+(ir_dev.ac_dev->param.temperature-16)+5+(ir_dev.ac_dev->ir_data[4]&0x08)+(ir_dev.ac_dev->ir_data[3]&0x80)+(ir_dev.ac_dev->ir_data[7]&0x20)-(ir_dev.ac_dev->ir_data[0]&0x10);
+            gree_Check &= 0x0f;
+            /* 进行逆序处理*/
+            ir_uint8_t* gree_Check_str = pvPortMalloc(4);//
+            sprintf((char*)gree_Check_str, "%04x", gree_Check);
+            ir_dev.ac_dev->ir_data[7] |= reverseBinary((ir_uint8_t*)gree_Check_str);
+            blog_debug_hexdump("GERR CODE", (uint8_t*)ir_dev.ac_dev->ir_data, ir_dev.ac_dev->ir_data_len);
+            vPortFree(gree_Check_str);
+        }
+        break;
         default:
             break;
     }
     //创建出波形数据
 
-    ir_dev.ac_dev->cmd_data.cmd_date_len = ir_data_encode(ir_dev.ac_dev);
-    dev_cmd_t* ir_cmd_data = create_ir_cmd(ac_brand_type, IR_DEVICE_CMD_SEND_MIDEA_CODE);
+    ir_dev.ac_dev->cmd_data.cmd_date_len = ir_data_encode(ir_dev.ac_brand_type, ir_dev.ac_dev);
+    dev_cmd_t* ir_cmd_data = create_ir_cmd(ac_brand_type, ac_brand_type+IR_DEVICE_CMD_SEND_MIDEA_CODE);
     if (ir_dev.ac_dev->ac_state)
         HAL_at_uart_send(ir_cmd_data->data, ir_cmd_data->cmd_date_len);
 
@@ -388,20 +447,20 @@ void ir_codec_config_set_temperature(int ac_brand_type, float temperature)
 void ir_codec_config_set_power(int ac_brand_type, int power_state)
 {
     ir_dev.ac_dev = &ac_dev[ac_brand_type];
-    if (!power_state) {
-        ir_dev.ac_dev->ac_state = 0;
-    }
-    else {
-        ir_dev.ac_dev->ac_state = 1;
-    }
-
+    // if (!power_state) {
+    //     ir_dev.ac_dev->ac_state = 0;
+    // }
+    // else {
+    //     ir_dev.ac_dev->ac_state = 1;
+    // }
+    ir_dev.ac_dev->ac_state = power_state;
     switch (ac_brand_type)
     {
         //美的空调的数据
         case IR_DEVICE_TYPE_AC_BRAND_MIDEA:
         {
             ir_dev.ac_dev->ir_data_len = 6;
-            blog_debug_hexdump("TCL CODE", (uint8_t*)ir_dev.ac_dev->ir_data, ir_dev.ac_dev->ir_data_len);
+            blog_debug_hexdump("Midea CODE", (uint8_t*)ir_dev.ac_dev->ir_data, ir_dev.ac_dev->ir_data_len);
         }
         break;
         case IR_DEVICE_TYPE_AC_BRAND_TCL:
@@ -439,18 +498,37 @@ void ir_codec_config_set_power(int ac_brand_type, int power_state)
                     default:
                         break;
                 }
-
-
                 blog_debug_hexdump("TCL CODE", (uint8_t*)ir_dev.ac_dev->ir_data, ir_dev.ac_dev->ir_data_len);
             }
+        }
+        break;
+        case IR_DEVICE_TYPE_AC_BRAND_GREE:
+        {
+            ir_dev.ac_dev->ir_data_len = 8;
+            ir_uint8_t state = ir_dev.ac_dev->ac_state;
+            blog_warn("ir_data[0] 0x%02X", ir_dev.ac_dev->ir_data[0]);
+            state <<= 4;
+            ir_dev.ac_dev->ir_data[0] &= 0xEF;
+            ir_dev.ac_dev->ir_data[0] += state;
+            /* 计算校验值*/
+            blog_warn("ir_data[0] =>>0x%02X", ir_dev.ac_dev->ir_data[0]);
+            //获取校验码值得最后四位
+            ir_uint8_t gree_Check = ((ir_dev.ac_dev->ir_data[0]&0xe0)-1)+(ir_dev.ac_dev->param.temperature-16)+5+(ir_dev.ac_dev->ir_data[4]&0x08)+(ir_dev.ac_dev->ir_data[3]&0x80)+(ir_dev.ac_dev->ir_data[7]&0x20)-(ir_dev.ac_dev->ir_data[0]&0x10);
+            gree_Check &= 0x0f;
+            /* 进行逆序处理*/
+            ir_uint8_t* gree_Check_str = pvPortMalloc(4);//
+            sprintf((char*)gree_Check_str, "%04x", gree_Check);
+            ir_dev.ac_dev->ir_data[7] |= reverseBinary((ir_uint8_t*)gree_Check_str);
+            vPortFree(gree_Check_str);
+            blog_info_hexdump("Gree CODE", (uint8_t*)ir_dev.ac_dev->ir_data, ir_dev.ac_dev->ir_data_len);
         }
         break;
         default:
             break;
     }
     //创建出波形数据
-    ir_dev.ac_dev->cmd_data.cmd_date_len = ir_data_encode(ir_dev.ac_dev);
-    dev_cmd_t* ir_cmd_data = create_ir_cmd(ac_brand_type, IR_DEVICE_CMD_SEND_MIDEA_CODE);
+    ir_dev.ac_dev->cmd_data.cmd_date_len = ir_data_encode(ac_brand_type, ir_dev.ac_dev);
+    dev_cmd_t* ir_cmd_data = create_ir_cmd(ac_brand_type, ac_brand_type+IR_DEVICE_CMD_SEND_MIDEA_CODE);
     HAL_at_uart_send(ir_cmd_data->data, ir_cmd_data->cmd_date_len);
 
     ir_dev.ac_dev = NULL;
@@ -460,6 +538,7 @@ void ir_codec_config_set_modes(int ac_brand_type, uint8_t modes_cnt)
 {
     ir_dev.ac_dev = &ac_dev[ac_brand_type];
     ir_dev.ac_dev->param.modes = modes_cnt;
+
     if (ir_dev.ac_dev->param.modes>6) {
 
         blog_error("modes = %d ,There is no preset mode for this", ir_dev.ac_dev->param.modes);
@@ -473,11 +552,12 @@ void ir_codec_config_set_modes(int ac_brand_type, uint8_t modes_cnt)
         case IR_DEVICE_TYPE_AC_BRAND_MIDEA:
         {
             ir_dev.ac_dev->ir_data_len = 6;
-            ir_uint8_t _temp_hex = ir_dev.ac_dev->param.modes_data[ir_dev.ac_dev->param.modes];
+
+            ir_uint8_t _temp_hex = ir_dev.ac_dev->param.modes_data[ir_dev.ac_dev->param.modes];//获取模式设置
             if (ir_dev.ac_dev->param.modes==AC_MODES_AUTO||ir_dev.ac_dev->param.modes==AC_MODES_DRY) {
 
-                ir_dev.ac_dev->param.fan_mode = AC_FAN_MODE_FIXED;
-                uint8_t fam_data = ir_dev.ac_dev->param.fan_mode_data[(uint8_t)(ir_dev.ac_dev->param.fan_mode)];
+                ir_dev.ac_dev->param.fan_mode = AC_FAN_MODE_FIXED;//根据模式设置扫风模式
+                uint8_t fam_data = ir_dev.ac_dev->param.fan_mode_data[(uint8_t)(ir_dev.ac_dev->param.fan_mode)];//获取扫风代码
                 fam_data <<= 4;
                 ir_dev.ac_dev->ir_data[2] = 0x1f;
                 ir_dev.ac_dev->ir_data[2] += fam_data;
@@ -505,7 +585,7 @@ void ir_codec_config_set_modes(int ac_brand_type, uint8_t modes_cnt)
             ir_dev.ac_dev->ir_data[4] = ir_dev.ac_dev->ir_data[4]&0xf0;
             ir_dev.ac_dev->ir_data[4] += _temp_hex;
             ir_dev.ac_dev->ir_data[5] = ir_dev.ac_dev->ir_data[4]^0xff;
-            blog_debug_hexdump("Midea CODE", (uint8_t*)ir_dev.ac_dev->ir_data, ir_dev.ac_dev->ir_data_len);
+            blog_info_hexdump("Midea CODE", (uint8_t*)ir_dev.ac_dev->ir_data, ir_dev.ac_dev->ir_data_len);
         }
         break;
         case IR_DEVICE_TYPE_AC_BRAND_TCL:
@@ -547,13 +627,54 @@ void ir_codec_config_set_modes(int ac_brand_type, uint8_t modes_cnt)
             }
         }
         break;
+        case IR_DEVICE_TYPE_AC_BRAND_GREE:
+        {
+            /* 重新给赋值开关位*/
+            ir_uint8_t state = ir_dev.ac_dev->ac_state;
+            blog_warn("ir_data[0] 0x%02X", ir_dev.ac_dev->ir_data[0]);
+            state <<= 4;
+            ir_dev.ac_dev->ir_data[0] &= 0xEF;
+            ir_dev.ac_dev->ir_data[0] += state;
+
+            ir_uint8_t mode = ir_dev.ac_dev->param.modes_data[ir_dev.ac_dev->param.modes];
+#if 0
+            if (ir_dev.ac_dev->param.modes==AC_MODES_AUTO||ir_dev.ac_dev->param.modes==AC_MODES_DRY) {
+                ir_dev.ac_dev->param.fan_mode = AC_FAN_MODE_FIXED;//根据模式设置扫风模式
+                uint8_t fam_data = ir_dev.ac_dev->param.fan_mode_data[(uint8_t)(ir_dev.ac_dev->param.fan_mode)];//获取扫风代码
+                fam_data <<= 2;
+                ir_dev.ac_dev->ir_data[0] += fam_data;
+            }//如果是模式自动的话或者加热的话，设置扫风模式
+            else if (ir_dev.ac_dev->param.modes==AC_MODES_COOL||ir_dev.ac_dev->param.modes==AC_MODES_HEAT) {
+                ir_dev.ac_dev->param.fan_mode = AC_FAN_MODE_AUTO;
+                uint8_t fam_data = ir_dev.ac_dev->param.fan_mode_data[(uint8_t)(ir_dev.ac_dev->param.fan_mode)];
+                fam_data <<= 2;
+                ir_dev.ac_dev->ir_data[0] += fam_data;
+            }
+#endif
+            //左移5位，以符合格力的模式要求
+            blog_warn("mode=%02X", mode);
+            mode <<= 5;
+            blog_warn("mode<<=4:%02X  0x%02X", mode, ir_dev.ac_dev->ir_data[0]);
+            ir_dev.ac_dev->ir_data[0] &= 0x1F;
+            ir_dev.ac_dev->ir_data[0] += mode;
+            //计算校验码
+            ir_uint8_t gree_Check = ((ir_dev.ac_dev->ir_data[0]&0xe0)-1)+(ir_dev.ac_dev->param.temperature-16)+5+(ir_dev.ac_dev->ir_data[4]&0x08)+(ir_dev.ac_dev->ir_data[3]&0x80)+(ir_dev.ac_dev->ir_data[7]&0x20)-(ir_dev.ac_dev->ir_data[0]&0x10);
+            gree_Check &= 0x0f;
+            /* 进行逆序处理*/
+            ir_uint8_t* gree_Check_str = pvPortMalloc(4);//
+            sprintf((char*)gree_Check_str, "%04x", gree_Check);
+            ir_dev.ac_dev->ir_data[7] |= reverseBinary((ir_uint8_t*)gree_Check_str);
+            vPortFree(gree_Check_str);
+            blog_info_hexdump("Gree CODE", (uint8_t*)ir_dev.ac_dev->ir_data, ir_dev.ac_dev->ir_data_len);
+        }
+        break;
         default:
             break;
     }
 
     //创建出波形数据
     blog_debug("ir data=%02x %02x %02x %02x %02x %02x ", ir_dev.ac_dev->ir_data[0], ir_dev.ac_dev->ir_data[1], ir_dev.ac_dev->ir_data[2], ir_dev.ac_dev->ir_data[3], ir_dev.ac_dev->ir_data[4], ir_dev.ac_dev->ir_data[5]);
-    ir_dev.ac_dev->cmd_data.cmd_date_len = ir_data_encode(ir_dev.ac_dev);
+    ir_dev.ac_dev->cmd_data.cmd_date_len = ir_data_encode(ac_brand_type, ir_dev.ac_dev);
     dev_cmd_t* ir_cmd_data = create_ir_cmd(ac_brand_type, IR_DEVICE_CMD_SEND_MIDEA_CODE);
     if (ir_dev.ac_dev->ac_state)
         HAL_at_uart_send(ir_cmd_data->data, ir_cmd_data->cmd_date_len);
@@ -590,13 +711,12 @@ void ir_codec_config_set_fan_modes(int ac_brand_type, uint8_t modes_cnt)
                 ir_dev.ac_dev->ir_data[2] = ir_dev.ac_dev->ir_data[2]& 0x1f;
                 ir_dev.ac_dev->ir_data[2] += fam_data;
                 ir_dev.ac_dev->ir_data[3] = ir_dev.ac_dev->ir_data[2]^0xff;
-                blog_debug_hexdump("Midea CODE", (uint8_t*)ir_dev.ac_dev->ir_data, ir_dev.ac_dev->ir_data_len);
+                blog_info_hexdump("Midea CODE", (uint8_t*)ir_dev.ac_dev->ir_data, ir_dev.ac_dev->ir_data_len);
             }
             break;
             case IR_DEVICE_TYPE_AC_BRAND_TCL:
             {
-
-                blog_debug_hexdump("TCL CODE", (uint8_t*)ir_dev.ac_dev->ir_data, ir_dev.ac_dev->ir_data_len);
+                blog_info_hexdump("TCL CODE", (uint8_t*)ir_dev.ac_dev->ir_data, ir_dev.ac_dev->ir_data_len);
             }
             break;
             default:
@@ -605,7 +725,7 @@ void ir_codec_config_set_fan_modes(int ac_brand_type, uint8_t modes_cnt)
 
         //创建出波形数据
 
-        ir_dev.ac_dev->cmd_data.cmd_date_len = ir_data_encode(ir_dev.ac_dev);
+        ir_dev.ac_dev->cmd_data.cmd_date_len = ir_data_encode(ac_brand_type, ir_dev.ac_dev);
         dev_cmd_t* ir_cmd_data = create_ir_cmd(ac_brand_type, IR_DEVICE_CMD_SEND_MIDEA_CODE);
         HAL_at_uart_send(ir_cmd_data->data, ir_cmd_data->cmd_date_len);
     }

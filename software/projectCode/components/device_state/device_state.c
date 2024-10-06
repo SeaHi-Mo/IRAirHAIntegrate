@@ -162,7 +162,8 @@ static void device_state_task(void* arg)
 
 static void sht30_get_data_callback(sht3x_data_t* sht30_data)
 {
-    blog_info("temperature: %.2f humidity: %d", sht30_data->temperature, sht30_data->humidity);
+    if (sht30_data->temperature!=0&&sht30_data->humidity!=0)
+        blog_info("temperature: %.2f humidity: %d", sht30_data->temperature, sht30_data->humidity);
     if (ha_dev.mqtt_info.mqtt_connect_status) {
         ha_sensor_entity_t* sht30_data_temperature = homeAssistant_fine_entity(CONFIG_HA_ENTITY_SENSOR, "th30_t");
         ha_sensor_entity_t* sht30_data_humidity = homeAssistant_fine_entity(CONFIG_HA_ENTITY_SENSOR, "th30_h");

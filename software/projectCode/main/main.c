@@ -27,7 +27,8 @@
 void main()
 {
     bl_sys_init();
-    blog_set_level_log_component(BLOG_LEVEL_DEBUG, "main");
+    blog_set_level_log_component(BLOG_LEVEL_ALL, "main");
+    blog_set_level_log_component(BLOG_LEVEL_ALL, "components");
     easyflash_init();
     device_state_init(NULL);
     blog_info("[OS] Starting TCP/IP Stack...");
