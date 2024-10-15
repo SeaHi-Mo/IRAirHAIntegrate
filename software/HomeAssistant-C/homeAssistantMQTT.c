@@ -26,6 +26,7 @@
 static homeAssisatnt_device_t* ha_device;
 
 static uint8_t STA_MAC[6] = { 0 };
+char* unique_id = NULL;
 
 static cJSON* homeAssistant_device_create(void)
 {
@@ -320,14 +321,14 @@ static void homeAssistant_create_sensor_data(ha_sensor_entity_t* sensor_entity, 
     if (sensor_entity->name!=NULL)cJSON_AddStringToObject(root, "name", sensor_entity->name);
     if (sensor_entity->unique_id!=NULL)
     {
-        char* unique_id = pvPortMalloc(5);
-        memset(unique_id, 0, 5);
-        sprintf(unique_id, "-%02x%2x", STA_MAC[4], STA_MAC[5]);
-        sensor_entity->unique_id = strcat(sensor_entity->unique_id, unique_id);
-        vPortFree(unique_id);
-        cJSON_AddStringToObject(root, "unique_id", sensor_entity->unique_id);
+        unique_id = pvPortMalloc(32);
+        memset(unique_id, 0, 32);
+        sprintf(unique_id, "%s-%02x%2x", sensor_entity->unique_id, STA_MAC[4], STA_MAC[5]);
+        HA_LOG_F("unique_id =%s\r\n", unique_id);
+        cJSON_AddStringToObject(root, "unique_id", unique_id);
     }
     else HA_LOG_E("unique id is null for entity:%s \r\n ", sensor_entity->name);
+
 
     if (sensor_entity->object_id!=NULL)cJSON_AddStringToObject(root, "object_id", sensor_entity->object_id);
     if (sensor_entity->icon!=NULL)cJSON_AddStringToObject(root, "icon", sensor_entity->icon);
@@ -372,7 +373,7 @@ static void  entity_sensor_add_node(ha_sensor_entity_t* sensor_new_node)
     if (sensor_new_node->entity_config_topic==NULL) {
         sensor_new_node->entity_config_topic = pvPortMalloc(128);
         memset(sensor_new_node->entity_config_topic, 0, 128);
-        sprintf(sensor_new_node->entity_config_topic, "%s/%s/%s/config", CONFIG_HA_AUTOMATIC_DISCOVERY, CONFIG_HA_ENTITY_SENSOR, sensor_new_node->unique_id);
+        sprintf(sensor_new_node->entity_config_topic, "%s/%s/%s/config", CONFIG_HA_AUTOMATIC_DISCOVERY, CONFIG_HA_ENTITY_SENSOR, unique_id);
 
     }
     if (ha_device->mqtt_info.mqtt_connect_status) {
@@ -390,6 +391,8 @@ static void  entity_sensor_add_node(ha_sensor_entity_t* sensor_new_node)
     sensor_new_node->prev = sensor_list_handle;
     sensor_new_node->next = ha_device->entity_sensor->sensor_list;
     ha_device->entity_sensor->sensor_list->prev = sensor_new_node;
+    vPortFree(unique_id);
+    unique_id = NULL;
     vPortFree(sensor_new_node->config_data);
 }
 #endif
@@ -412,12 +415,11 @@ static void homeAssistant_create_binary_sensor_data(ha_Bsensor_entity_t* binary_
     if (binary_sensor_entity->name!=NULL)cJSON_AddStringToObject(root, "name", binary_sensor_entity->name);
     if (binary_sensor_entity->unique_id!=NULL)
     {
-        char* unique_id = pvPortMalloc(5);
-        memset(unique_id, 0, 5);
-        sprintf(unique_id, "-%02x%2x", STA_MAC[4], STA_MAC[5]);
-        binary_sensor_entity->unique_id = strcat(binary_sensor_entity->unique_id, unique_id);
-        vPortFree(unique_id);
-        cJSON_AddStringToObject(root, "unique_id", binary_sensor_entity->unique_id);
+        unique_id = pvPortMalloc(32);
+        memset(unique_id, 0, 32);
+        sprintf(unique_id, "%s-%02x%2x", binary_sensor_entity->unique_id, STA_MAC[4], STA_MAC[5]);
+        HA_LOG_F("unique_id =%s\r\n", unique_id);
+        cJSON_AddStringToObject(root, "object_id", unique_id);
     }
     else HA_LOG_E("unique id is null for entity:%s \r\n", binary_sensor_entity->name);
 
@@ -489,6 +491,8 @@ static void  entity_binary_sensor_add_node(ha_Bsensor_entity_t* binary_sensor_ne
     binary_sensor_new_node->prev = binary_sensor_list_handle;
     binary_sensor_new_node->next = ha_device->entity_binary_sensor->binary_sensor_list;
     ha_device->entity_binary_sensor->binary_sensor_list->prev = binary_sensor_new_node;
+
+    vPortFree(unique_id);
     vPortFree(binary_sensor_new_node->config_data);
 }
 #endif
@@ -617,7 +621,7 @@ static void  entity_text_add_node(ha_text_entity_t* text_new_node)
 static char* modes_def[] = { "auto",  "cool", "heat", "dry", "fan_only" };
 static char* fan_modes_def[] = { "auto", "low", "medium", "high" };
 static char* preset_modes_def[] = { "eco", "away", "boost", "comfort", "home", "sleep", "activity" };
-char* unique_id = NULL;
+
 static void homeAssistant_create_climate_HVAC_data(ha_climateHVAC_t* climateHVAC_entity, cJSON* device_json)
 {
     if (climateHVAC_entity==NULL) {
@@ -1442,7 +1446,7 @@ void update_all_entity_to_homeassistant(void)
 #endif
     homeAssistant_device_send_status(HOMEASSISTANT_STATUS_ONLINE);
 
-        }
+}
 
 
 
@@ -1679,7 +1683,7 @@ void homeAssistant_device_add_entity(char* entity_type, void* ha_entity_list)
         entity_select_add_node(select_node);
     }
 #endif
-    }
+}
 
 int homeAssistant_device_send_entity_state(char* entity_type, void* ha_entity_list, unsigned short state)
 {
@@ -1783,7 +1787,7 @@ int homeAssistant_device_send_entity_state(char* entity_type, void* ha_entity_li
     }
 #endif
     return ret_id;
-        }
+}
 
 void* homeAssistant_fine_entity(char* entity_type, const char* unique_id)
 {
@@ -1875,4 +1879,4 @@ void* homeAssistant_fine_entity(char* entity_type, const char* unique_id)
 #endif
     HA_LOG_E("There is no %s entity unique id %s\r\n", entity_type, unique_id);
     return NULL;
-        }
+}
