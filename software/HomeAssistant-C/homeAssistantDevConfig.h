@@ -118,8 +118,9 @@
  //选择器实体  默认不开启，需要使用就置 1                 
 #define CONFIG_ENTITY_ENABLE_SELECT 1      
 
-//传感器实体   默认不开启，需要使用就置 1            
-#define CONFIG_ENTITY_ENABLE_SENSOR 0    
+//传感器实体   默认不开启，需要使用就置 1
+
+#define CONFIG_ENTITY_ENABLE_SENSOR 1    
 
 //警报器实体  默认不开启，需要使用就置 1                
 #define CONFIG_ENTITY_ENABLE_SIREN 0     

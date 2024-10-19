@@ -16,5 +16,7 @@ typedef struct __hxd039b_ir_msg {
     char ir_code_group[2];
 }hxd039b_msg_t;
 
-
+void ir_codec_start_learn(void);
+void ir_dvice_init(void);
+void hxd_039b_uart_recv_cb(unsigned char uart_data);
 #endif

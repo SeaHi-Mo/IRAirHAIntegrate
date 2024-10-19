@@ -29,7 +29,7 @@ static void ir_buttom_task(void* asr)
             }
             //启动学习
             blog_debug("start learning ........");
-            ir_codec_start_learn();
+            // ir_codec_start_learn();
         }
 
         if (!bl_gpio_input_get_value(IR_DEVICE_NET_COONFIG_BUTTON)) {
