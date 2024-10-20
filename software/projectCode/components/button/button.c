@@ -30,6 +30,8 @@ static void ir_buttom_task(void* asr)
             //启动学习
             blog_debug("start learning ........");
             // ir_codec_start_learn();
+            dev_msg.device_state = DEVICE_STATE_START_IR_LEARN;
+            device_state_update(false, &dev_msg);
         }
 
         if (!bl_gpio_input_get_value(IR_DEVICE_NET_COONFIG_BUTTON)) {

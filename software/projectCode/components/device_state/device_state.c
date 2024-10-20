@@ -16,7 +16,7 @@
 #include <string.h>
 #include <blog.h>
 #include <device_state.h>
-
+#include <bl_gpio.h>
 static homeAssisatnt_device_t ha_dev;
 static QueueHandle_t device_queue_handle;
 
@@ -102,6 +102,10 @@ static void device_state_task(void* arg)
             case DEVICE_STATE_BLUFI_CONFIG:
                 device_led_update_state(LED_STATE_BLINK_0_5);
                 blufi_config_start();
+                break;
+            case DEVICE_STATE_START_IR_LEARN:
+                blog_info("<<<<<<<<<<<<<<< DEVICE_STATE_START_IR_LEARN");
+                ir_codec_start_learn();
                 break;
             case DEVICE_STATE_HOMEASSISTANT_CONNECT:
                 blog_info("<<<<<<<<<<<<<<< DEVICE_STATE_HOMEASSISTANT_CONNECT");

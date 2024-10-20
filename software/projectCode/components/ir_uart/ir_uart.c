@@ -50,7 +50,7 @@ void ir_uart_dvice_init(ir_recv_cb_t _ir_recv_cb)
     int rts_pin = 0xff;
     // bl_uart_init_ex(IR_UART_NUM, 4, 3, cts_pin, rts_pin, 115200,
     //                 dataBits, stopBits, parity);
-    bl_uart_init(IR_UART_NUM, IR_UART_TX, IR_UART_RX, cts_pin, rts_pin, 115200);
+    bl_uart_init(IR_UART_NUM, IR_UART_TX, IR_UART_RX, cts_pin, rts_pin, 57600);
     bl_uart_int_tx_notify_register(IR_UART_NUM, __uart_tx_irq, NULL);
     bl_uart_int_rx_notify_register(IR_UART_NUM, hosal_uart_callback, NULL);
     bl_uart_int_enable(IR_UART_NUM);

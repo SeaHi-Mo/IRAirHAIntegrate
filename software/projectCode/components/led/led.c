@@ -61,6 +61,7 @@ static void led_status_task(void* arg)
 void device_led_init(void)
 {
     bl_gpio_enable_output(NET_WORKER_LED, true, false);
+
     bl_gpio_output_set(NET_WORKER_LED, 1);
     xTaskCreate(led_status_task, "net led task", 1024, NULL, 11, &led_task);
 }
