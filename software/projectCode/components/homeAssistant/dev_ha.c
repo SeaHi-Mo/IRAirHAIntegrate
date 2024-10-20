@@ -23,40 +23,41 @@ void ha_event_cb(ha_event_t event, homeAssisatnt_device_t* dev)
         /*  连接服务器事件  */
         case HA_EVENT_MQTT_CONNECED:
         {
-            ir_dev_type_t ac_type = flash_get_ac_type();
-            HA_LOG_I("<<<<<<<<<<  HA_EVENT_MQTT_CONNECED AC TYPE=%d\r\n", ac_type);
+            // ir_dev_type_t ac_type = flash_get_ac_type();
+            // HA_LOG_I("<<<<<<<<<<  HA_EVENT_MQTT_CONNECED AC TYPE=%d\r\n", ac_type);
             static ha_climateHVAC_t AC1 = {
                 .unique_id = "AC_1",
-
+                .name="红外遥控器",
+                
             };
-            switch (ac_type)
-            {
-                case IR_DEVICE_TYPE_AC_BRAND_MIDEA:
-                    AC1.name = "美的空调";
-                    AC1.max_temp = 30.0;
-                    AC1.min_temp = 17.0;
-                    break;
-                case IR_DEVICE_TYPE_AC_BRAND_TCL:
-                    AC1.name = "TCL空调";
-                    AC1.max_temp = 30.0;
-                    AC1.min_temp = 16.0;
-                    break;
-                default:
-                    break;
-            }
+            // switch (ac_type)
+            // {
+            //     case IR_DEVICE_TYPE_AC_BRAND_MIDEA:
+            //         AC1.name = "美的空调";
+            //         AC1.max_temp = 30.0;
+            //         AC1.min_temp = 17.0;
+            //         break;
+            //     case IR_DEVICE_TYPE_AC_BRAND_TCL:
+            //         AC1.name = "TCL空调";
+            //         AC1.max_temp = 30.0;
+            //         AC1.min_temp = 16.0;
+            //         break;
+            //     default:
+            //         break;
+            // }
             homeAssistant_device_add_entity(CONFIG_HA_ENTITY_CLIMATE_HVAC, &AC1);
 
-            static char* options[] = { "美的","TCL" };
+            static char* options[] = { "空调","风扇","电视" };
             static ha_select_t select = {
-                .name = "选择空调品牌",
+                .name = "选择设备类型",
                 .unique_id = "select1",
                 .options = options,
-                .options_numble = 2,
+                .options_numble = 3,
                 .optimistic = true,
                 .enabled_by_default = true,
 
             };
-            select.option = ac_type;
+            select.option = 0;
 
             static ha_sensor_entity_t th30_t = {
                 .name = "温度",
