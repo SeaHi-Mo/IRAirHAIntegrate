@@ -22,10 +22,6 @@
 #include "blog.h"
 #define DBG_TAG "IR-DEVICE"
 #endif
-//空调列表
-static hxd039b_msg_t hxd_code_list[] = {
-    {"格力",{0x03,0x3E}}, //格力空调
-};
 
 /**
  * @brief 发送给hxb_039b 的代码，应该把串口发送函数再次运行
