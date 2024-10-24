@@ -8,7 +8,7 @@
 #
 #board config domain
 #
-CONFIG_BOARD_FLASH_SIZE := 4
+CONFIG_BOARD_FLASH_SIZE := 2
 
 #firmware config domain
 #

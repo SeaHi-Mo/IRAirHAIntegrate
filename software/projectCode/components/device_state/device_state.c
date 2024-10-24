@@ -191,7 +191,7 @@ void device_state_init(void* arg)
     // blufi_wifi_init();
     device_led_init();
     device_button_init();
-    sht30_device_init(SHT30_PERIODIC_SAMPLE_1_HIGH, sht30_get_data_callback);
+    // sht30_device_init(SHT30_PERIODIC_SAMPLE_1_HIGH, sht30_get_data_callback);
 
     if (err == pdPASS) {
         blog_info("\"device_state_task\" is create OK");

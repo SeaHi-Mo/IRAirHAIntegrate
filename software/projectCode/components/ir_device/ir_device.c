@@ -33,16 +33,16 @@ typedef struct {
 } CircularBuffer;
 static CircularBuffer hxd_recv_buff;
 
-static char ac_codeGrud[2] = { 0x03,0x3e };//默认空调码组
+unsigned char ac_codeGrud[2] = { 0x03,0x3e };//默认空调码组
 static unsigned char hxd039b2_code_lren[] = { 0x30,0x70,0xa0 };//固定学习码
 
 static void initBuffer(CircularBuffer* cb);
 static bool isEmpty(CircularBuffer* cb);
 static bool isFull(CircularBuffer* cb);
-static bool enqueue(CircularBuffer* cb, char data);
-static bool dequeue(CircularBuffer* cb, char* data);
+static bool enqueue(CircularBuffer* cb, unsigned char data);
+static bool dequeue(CircularBuffer* cb, unsigned char* data);
 static void printBuffer(CircularBuffer* cb);
-
+static void hxd_039b2_delay_ms(uint32_t ms);
 /**
  * @brief hxd039b2 串口接收回调，把这函数放到MCU的串口接收中断中运行
  *
@@ -53,9 +53,10 @@ void hxd_039b_uart_recv_cb(unsigned char uart_data)
     enqueue(&hxd_recv_buff, uart_data);
 
     if (isFull(&hxd_recv_buff)) {
-        printBuffer(&hxd_recv_buff);
+        // printBuffer(&hxd_recv_buff);
         dequeue(&hxd_recv_buff, &ac_codeGrud[0]);
         dequeue(&hxd_recv_buff, &ac_codeGrud[1]);
+        blog_info_hexdump("ir_acCode", ac_codeGrud, 2);
     }
 }
 /**
@@ -80,6 +81,17 @@ static void hxd_039b_send_data(unsigned char* data, int data_len)
     }
 #endif
     /*  其他主控的串口发送函数*/
+}
+/**
+ * @brief 延迟函数，需要MCU的延时函数在此处调用
+ *
+ * @param ms
+*/
+static void hxd_039b2_delay_ms(uint32_t ms)
+{
+#ifdef MCU_AI_WB2
+    vTaskDelay(pdMS_TO_TICKS(ms));
+#endif
 }
 /**
  * @brief hxd_039b 开始匹配红外码,需要按匹配键，之后使用目标遥控器开关进行匹配
@@ -118,7 +130,8 @@ void ir_codec_start_learn(void)
 #ifdef MCU_AI_WB2
     // 开启HXD039B电源
     bl_gpio_output_set(3, 0);
-
+    /* 延时时间，让HXD039B 进入工作状态*/
+    hxd_039b2_delay_ms(30);
 #endif
     //发送数据
     hxd_039b_find_code_groud();
@@ -172,7 +185,7 @@ static bool isFull(CircularBuffer* cb)
  * @return true 添加成功
  * @return false 添加失败
 */
-static bool enqueue(CircularBuffer* cb, char data)
+static bool enqueue(CircularBuffer* cb, unsigned char data)
 {
     if (isFull(cb)) {
         return false;  // 缓冲区已满，添加失败  
@@ -190,7 +203,7 @@ static bool enqueue(CircularBuffer* cb, char data)
  * @return true 取出成功
  * @return false 取出失败
 */
-static bool dequeue(CircularBuffer* cb, char* data)
+static bool dequeue(CircularBuffer* cb, unsigned char* data)
 {
     if (isEmpty(cb)) {
         return false;  // 缓冲区为空，取出失败  
