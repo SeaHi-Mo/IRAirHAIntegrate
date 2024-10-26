@@ -115,7 +115,7 @@ static void device_state_task(void* arg)
             {
                 ha_climateHVAC_t* ha_ac1 = (ha_climateHVAC_t*)homeAssistant_fine_entity(CONFIG_HA_ENTITY_CLIMATE_HVAC, "AC_1");
                 blog_info("<<<<<<<<<<<<<<<  DEVICE_STATE_HOMEASSISTANT_AC_POWER %s", ha_ac1->power_state?"ON":"OFF");
-                // ir_codec_config_set_power(ac_type, ha_ac1->power_state);
+                ir_codec_set_power(ha_ac1->power_state);
             }
             break;
             case  DEVICE_STATE_HOMEASSISTANT_AC_MODE:
@@ -125,6 +125,7 @@ static void device_state_task(void* arg)
                 blog_info("<<<<<<<<<<<<<<<  DEVICE_STATE_HOMEASSISTANT_AC_MODE %d", ha_ac1->modes_type);
                 // ir_codec_config_set_modes(ac_type, ha_ac1->modes_type);
                 flash_save_new_ac_mode(ha_ac1->modes_type);
+                ir_codec_set_mode((uint8_t)ha_ac1->modes_type);
             }
             break;
             case  DEVICE_STATE_HOMEASSISTANT_AC_TEMP:
@@ -134,13 +135,15 @@ static void device_state_task(void* arg)
 
                 // ir_codec_config_set_temperature(ac_type, ha_ac1->temperature_value);
                 flash_save_new_temp(ha_ac1->temperature_value);
+                ir_codec_set_temperature((uint8_t)ha_ac1->temperature_value);
             }
             break;
             case DEVICE_STATE_HOMEASSISTANT_AC_FAN_MODE:
             {
                 ha_climateHVAC_t* ha_ac1 = (ha_climateHVAC_t*)homeAssistant_fine_entity(CONFIG_HA_ENTITY_CLIMATE_HVAC, "AC_1");
                 blog_info("<<<<<<<<<<<<<<<  DEVICE_STATE_HOMEASSISTANT_AC_TEMP %d", ha_ac1->fan_modes_type);
-                // ir_codec_config_set_fan_modes(ac_type, ha_ac1->fan_modes_type);
+                ir_codec_set_fan_mode(ha_ac1->fan_modes_type);
+
             }
             break;
             case DEVICE_STATE_HOMEASSISTANT_AC_TYPE_CHANGE:

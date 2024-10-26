@@ -17,7 +17,7 @@
 #include <device_state.h>
 #include "button.h"
 static dev_msg_t dev_msg = { 0 };
-
+extern bool __hxd039b_busy;
 static void ir_buttom_task(void* asr)
 {
     while (1)
@@ -30,6 +30,7 @@ static void ir_buttom_task(void* asr)
             //启动学习
             blog_debug("start learning ........");
             // ir_codec_start_learn();
+
             dev_msg.device_state = DEVICE_STATE_START_IR_LEARN;
             device_state_update(false, &dev_msg);
         }

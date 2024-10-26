@@ -17,14 +17,36 @@
 #define MCU_AI_WB2
 
 #ifdef MCU_AI_WB2
+#include "FreeRTOS.h"
+#include "task.h"
+#include "timers.h"
 #include "ir_uart.h"
 #include "blog.h"
 #include <bl_gpio.h>
 #define DBG_TAG "IR-DEVICE"
+/**
+ * @brief  HXD 芯片电源启动IO
+ *
+*/
+#define HXD039B2_POWER_CTRL_GPIO 3 //芯片使能IO
+/**
+ * @brief 判忙IO ,低电平时处于学习状态，其他时间为高电平
+ *
+*/
+#define HXD039B2_BUSY_GPIO 1 
+/**
+ * @brief HXD 芯片启动时间
+ *
+*/
+#define HXD_039B2_START_TIME_MS  50
+
+TimerHandle_t hxd_busy_timer;
+
 #endif
 
 #define BUFFER_SIZE 2
-
+#define POWER_OFF 1
+#define POWER_ON 0
 typedef struct {
     char buffer[BUFFER_SIZE];
     int head;
@@ -33,6 +55,7 @@ typedef struct {
 } CircularBuffer;
 static CircularBuffer hxd_recv_buff;
 
+int __hxd039b_busy = 1;
 unsigned char ac_codeGrud[2] = { 0x03,0x3e };//默认空调码组
 static unsigned char hxd039b2_code_lren[] = { 0x30,0x70,0xa0 };//固定学习码
 
@@ -56,7 +79,9 @@ void hxd_039b_uart_recv_cb(unsigned char uart_data)
         // printBuffer(&hxd_recv_buff);
         dequeue(&hxd_recv_buff, &ac_codeGrud[0]);
         dequeue(&hxd_recv_buff, &ac_codeGrud[1]);
+#ifdef MCU_AI_WB2
         blog_info_hexdump("ir_acCode", ac_codeGrud, 2);
+#endif
     }
 }
 /**
@@ -70,6 +95,14 @@ static void hxd_039b_send_data(unsigned char* data, int data_len)
     //Ai-WB2的串口发送函数
     if (data==NULL) {
         printf("data is NULL \r\n");
+        return;
+    }
+    //如果芯片处于忙碌状态，则直接退出，不做任何操作
+    __hxd039b_busy = bl_gpio_input_get_value(HXD039B2_BUSY_GPIO);
+    if (!__hxd039b_busy) {
+#ifdef MCU_AI_WB2
+        blog_error("hxd is busy don't send data");
+#endif
         return;
     }
 #ifdef MCU_AI_WB2
@@ -102,9 +135,15 @@ static void hxd_039b2_delay_ms(uint32_t ms)
 */
 static int hxd_039b_find_code_groud(void)
 {
-    hxd_039b_send_data(hxd039b2_code_lren, 3);
+    // hxd_039b_send_data(hxd039b2_code_lren, 3);
+    uint16_t cnt = 0;
+    while (cnt < 3) {
+        bl_uart_data_send(IR_UART_NUM, hxd039b2_code_lren[cnt]);
+        cnt++;
+    }
     return 0;
 }
+
 /**
  * @brief 红外设备初始化
  *
@@ -114,29 +153,232 @@ void ir_dvice_init(void)
     //串口初始化接口
 #ifdef MCU_AI_WB2
     ir_uart_dvice_init(hxd_039b_uart_recv_cb);
-    bl_gpio_enable_output(3, true, false);//使能HXD039B2 控制IO
-    bl_gpio_output_set(3, 1);//关闭HXD039B2的电源
+
+    bl_gpio_enable_output(HXD039B2_POWER_CTRL_GPIO, true, false);//使能HXD039B2 控制IO
+    bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_OFF);//关闭HXD039B2的电源
+    //初始化判忙IO
+    bl_gpio_enable_input(HXD039B2_BUSY_GPIO, true, false);
 #endif
     /*初始化缓冲器*/
     initBuffer(&hxd_recv_buff);
-
 }
+#ifdef MCU_AI_WB2
 /**
- * @brief 启动学习，按遥控器的开关键匹配
+ * @brief 软件定时器定时判忙
+ *
+ * @param xTimer
+*/
+static void vTimerCallback(TimerHandle_t xTimer)
+{
+    uint32_t ulCount;
+    configASSERT(xTimer);
+    __hxd039b_busy = bl_gpio_input_get_value(HXD039B2_BUSY_GPIO);
+    ulCount = (uint32_t)pvTimerGetTimerID(xTimer);
+    //如果超时或者退出忙碌
+    if (ulCount>=2000||__hxd039b_busy) {
+        //停止定时器
+        xTimerStop(xTimer, 0);
+        /* 归零定时器ID*/
+        vTimerSetTimerID(xTimer, 0);
+        /* */
+        if (ulCount>=2000) {
+            blog_error("Learn timerout");
+            bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_OFF);
+        }
+        if (__hxd039b_busy) {
+            // 学习成功，关闭HXD039B电源
+            blog_info("Learn success,ac code 0x%02X 0x%02X", ac_codeGrud[0], ac_codeGrud[2]);
+            bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_OFF);
+
+        }
+        /* 删除定时器 */
+        xTimerDelete(xTimer, 0);
+        return;
+    }
+    ulCount++;
+}
+#endif
+/**
+ * @brief 启动学习，运行此函数之后，对着红外接收头，按遥控器的开关键即可匹配红外码
  *
 */
 void ir_codec_start_learn(void)
 {
 #ifdef MCU_AI_WB2
     // 开启HXD039B电源
-    bl_gpio_output_set(3, 0);
-    /* 延时时间，让HXD039B 进入工作状态*/
-    hxd_039b2_delay_ms(30);
+    uint16_t time_out_cont = 0;
+    bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_ON);
+    hxd_busy_timer = xTimerCreate("busy timer", pdMS_TO_TICKS(10), pdTRUE, time_out_cont, vTimerCallback);
 #endif
+    /* 延时时间，让HXD039B 进入工作状态*/
+    hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS);
     //发送数据
     hxd_039b_find_code_groud();
+    //启动定时器判断HXD是否忙碌
+    hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS*20);
+    xTimerStart(hxd_busy_timer, 0);
 }
-
+/**
+ * @brief 发送电源控制指令
+ *
+ * @param power_state 1为打开，0为关闭
+*/
+void ir_codec_set_power(int power_state)
+{
+#ifdef MCU_AI_WB2
+    // 开启HXD039B电源
+    bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_ON);
+#endif 
+    hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS);
+    //组织数据 例如打开空调： 0x30  0x06	0x03	0x03e	 81  
+    uint8_t ir_code[5] = { IR_CODE_BYTE_HANDLE,IR_CODE_BYTE_AC_TYPE,ac_codeGrud[0],ac_codeGrud[1],power_state?IR_CODE_BYTE_AC_ON:IR_CODE_BYTE_AC_OFF };
+    hxd_039b_send_data(ir_code, 5);
+    //延时等待发送完成后关闭HXD039B的电源
+    hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS*20);
+#ifdef MCU_AI_WB2
+    // 关闭HXD039B的电源
+    blog_info_hexdump("uart_data", ir_code, 5);
+    bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_OFF);
+#endif 
+}
+/**
+ * @brief 设置模式，发送0~4
+ *
+ * @param mode 0: 自动模式 1:制冷模式 2:除湿模式 3：送风模式 4: 制热模式
+*/
+void ir_codec_set_mode(int mode)
+{
+#ifdef MCU_AI_WB2
+    // 开启HXD039B电源
+    bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_ON);
+#endif 
+    hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS);
+    //组织数据 例如打开空调： 0x30  0x06	0x03	0x03e	 81  
+    uint8_t ir_code[5] = { IR_CODE_BYTE_HANDLE,IR_CODE_BYTE_AC_TYPE,ac_codeGrud[0],ac_codeGrud[1], IR_CODE_BYTE_AC_MODE_AUTO+mode };
+    hxd_039b_send_data(ir_code, 5);
+    //延时等待发送完成后关闭HXD039B的电源
+    hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS*20);
+#ifdef MCU_AI_WB2
+    // 关闭HXD039B的电源
+    blog_info_hexdump("uart_data", ir_code, 5);
+    bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_OFF);
+#endif   
+}
+/**
+ * @brief 设置温度，
+ *
+ * @param temperature
+*/
+void ir_codec_set_temperature(unsigned char temperature)
+{
+#ifdef MCU_AI_WB2
+    // 开启HXD039B电源
+    bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_ON);
+#endif 
+    hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS);
+    //组织数据 例如打开空调： 0x30  0x06	0x03	0x03e	 81  
+    uint8_t ir_code[5] = { IR_CODE_BYTE_HANDLE,IR_CODE_BYTE_AC_TYPE,ac_codeGrud[0],ac_codeGrud[1], (temperature-16)+IR_CODE_BYTE_AC_TEMPERATURE_16 };
+    hxd_039b_send_data(ir_code, 5);
+    //延时等待发送完成后关闭HXD039B的电源
+    hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS*20);
+#ifdef MCU_AI_WB2
+    // 关闭HXD039B的电源
+    blog_info_hexdump("uart_data", ir_code, 5);
+    bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_OFF);
+#endif   
+}
+/**
+ * @brief 设置风力大小
+ *
+ * @param fan_mode 0:低速风 1:中等风力 2:强风
+*/
+void ir_codec_set_fan_mode(unsigned char fan_mode)
+{
+#ifdef MCU_AI_WB2
+    // 开启HXD039B电源
+    bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_ON);
+#endif 
+    hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS);
+    //组织数据 例如打开空调： 0x30  0x06	0x03	0x03e	 81  
+    uint8_t ir_code[5] = { IR_CODE_BYTE_HANDLE,IR_CODE_BYTE_AC_TYPE,ac_codeGrud[0],ac_codeGrud[1], fan_mode+IR_CODE_BYTE_AC_FAN_MODE_AUTO };
+    hxd_039b_send_data(ir_code, 5);
+    //延时等待发送完成后关闭HXD039B的电源
+    hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS*20);
+#ifdef MCU_AI_WB2
+    // 关闭HXD039B的电源
+    blog_info_hexdump("uart_data", ir_code, 5);
+    bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_OFF);
+#endif   
+}
+/**
+ * @brief 设置风向
+ *
+ * @param trend 0：向上 1：中间 2：向下
+*/
+void ir_codec_set_trend(unsigned char trend)
+{
+#ifdef MCU_AI_WB2
+    // 开启HXD039B电源
+    bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_ON);
+#endif 
+    hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS);
+    //组织数据 例如打开空调： 0x30  0x06	0x03	0x03e	 81  
+    uint8_t ir_code[5] = { IR_CODE_BYTE_HANDLE,IR_CODE_BYTE_AC_TYPE,ac_codeGrud[0],ac_codeGrud[1], trend+IR_CODE_BYTE_AC_TREND_UP };
+    hxd_039b_send_data(ir_code, 5);
+    //延时等待发送完成后关闭HXD039B的电源
+    hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS*20);
+#ifdef MCU_AI_WB2
+    // 关闭HXD039B的电源
+    blog_info_hexdump("uart_data", ir_code, 5);
+    bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_OFF);
+#endif   
+}
+/**
+ * @brief 自动风向开关
+ *
+ * @param trend_auto 0:关闭 1：开启
+*/
+void ir_codec_set_trend_auto(unsigned char trend_auto)
+{
+#ifdef MCU_AI_WB2
+    // 开启HXD039B电源
+    bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_ON);
+#endif 
+    hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS);
+    //组织数据 例如打开空调： 0x30  0x06	0x03	0x03e	 81  
+    uint8_t ir_code[5] = { IR_CODE_BYTE_HANDLE,IR_CODE_BYTE_AC_TYPE,ac_codeGrud[0],ac_codeGrud[1],trend_auto?IR_CODE_BYTE_AC_TREND_AUTO_ON:IR_CODE_BYTE_AC_TREND_AUTO_OFF };
+    hxd_039b_send_data(ir_code, 5);
+    //延时等待发送完成后关闭HXD039B的电源
+    hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS*20);
+#ifdef MCU_AI_WB2
+    // 关闭HXD039B的电源
+    blog_info_hexdump("uart_data", ir_code, 5);
+    bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_OFF);
+#endif   
+}
+/**
+ * @brief 灯光开关
+ *
+ * @param light_power 0：关闭灯光 1：打开灯光
+*/
+void ir_codec_set_light_power(unsigned char light_power)
+{
+#ifdef MCU_AI_WB2
+    // 开启HXD039B电源
+    bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_ON);
+#endif 
+    hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS);
+    //组织数据 例如打开空调： 0x30  0x06	0x03	0x03e	 81  
+    uint8_t ir_code[5] = { IR_CODE_BYTE_HANDLE,IR_CODE_BYTE_AC_TYPE,ac_codeGrud[0],ac_codeGrud[1],light_power?IR_CODE_BYTE_AC_LIGHT_ON:IR_CODE_BYTE_AC_LIGHT_OFF };
+    hxd_039b_send_data(ir_code, 5);
+    //延时等待发送完成后关闭HXD039B的电源
+    hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS*20);
+#ifdef MCU_AI_WB2
+    // 关闭HXD039B的电源
+    blog_info_hexdump("uart_data", ir_code, 5);
+    bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_OFF);
+#endif   
+}
 /**
  * @brief 以下是缓冲器程序
  *
