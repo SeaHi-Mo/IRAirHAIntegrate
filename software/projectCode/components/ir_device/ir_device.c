@@ -23,25 +23,11 @@
 #include "ir_uart.h"
 #include "blog.h"
 #include <bl_gpio.h>
+#include "easy_flash.h"
 #define DBG_TAG "IR-DEVICE"
-/**
- * @brief  HXD 芯片电源启动IO
- *
-*/
-#define HXD039B2_POWER_CTRL_GPIO 3 //芯片使能IO
-/**
- * @brief 判忙IO ,低电平时处于学习状态，其他时间为高电平
- *
-*/
-#define HXD039B2_BUSY_GPIO 1 
-/**
- * @brief HXD 芯片启动时间
- *
-*/
-#define HXD_039B2_START_TIME_MS  50
-
 TimerHandle_t hxd_busy_timer;
-
+TimerHandle_t hxd_power_off_timer;
+bool hxd_power_off_timer_start = 0;
 #endif
 
 #define BUFFER_SIZE 2
@@ -55,8 +41,8 @@ typedef struct {
 } CircularBuffer;
 static CircularBuffer hxd_recv_buff;
 
-int __hxd039b_busy = 1;
-unsigned char ac_codeGrud[2] = { 0x03,0x3e };//默认空调码组
+static int __hxd039b_busy = 1;
+unsigned char ac_codeGrud[2] = { 0x03,0xF8 };//默认空调码组
 static unsigned char hxd039b2_code_lren[] = { 0x30,0x70,0xa0 };//固定学习码
 
 static void initBuffer(CircularBuffer* cb);
@@ -79,10 +65,40 @@ void hxd_039b_uart_recv_cb(unsigned char uart_data)
         // printBuffer(&hxd_recv_buff);
         dequeue(&hxd_recv_buff, &ac_codeGrud[0]);
         dequeue(&hxd_recv_buff, &ac_codeGrud[1]);
+        if (ac_codeGrud[0]!=0XFF) {
+            /* 读取成功之后，保存到flash*/
 #ifdef MCU_AI_WB2
-        blog_info_hexdump("ir_acCode", ac_codeGrud, 2);
+            blog_info_hexdump("ir_acCode", ac_codeGrud, 2);
 #endif
+        }
+
     }
+}
+/**
+ * @brief 保存空调码组至，可以保存至flash 或者其他地址，以实现掉电保存
+ *
+ * @param ac_codeGrud
+ * @param size_len
+*/
+void hxd_039b2_save_ac_codeGrud(unsigned char* ac_codeGrud, int size_len)
+{
+#ifdef MCU_AI_WB2
+    flash_save_new_ac_gcode(ac_codeGrud, size_len);
+#endif
+}
+/**
+ * @brief 读取
+ *
+ * @param ac_codeGrud
+*/
+int hxd_039b2_get_ac_codeGrud(unsigned char* ac_codeGrud)
+{
+    int g_code_len = 0;
+#ifdef MCU_AI_WB2
+    memset(ac_codeGrud, 0, 2);
+    g_code_len = flash_get_ac_gcode(ac_codeGrud);
+#endif
+    return g_code_len;
 }
 /**
  * @brief 发送给hxb_039b 的代码，应该把串口发送函数再次运行
@@ -143,6 +159,31 @@ static int hxd_039b_find_code_groud(void)
     }
     return 0;
 }
+/**
+ * @brief 长时间无操作，关闭HXD芯片电源，
+ *
+ * @param xTimer
+*/
+static void hxd_power_timers_cb(TimerHandle_t xTimer)
+{
+    uint32_t ulCount;
+    configASSERT(xTimer);
+    ulCount = (uint32_t)pvTimerGetTimerID(xTimer);
+    /* 识别是否已经超过2s 没有操作？*/
+    if (ulCount>=20) {
+        /* 关闭HXD 电源并停止此定时器 */
+#ifdef MCU_AI_WB2
+        blog_info("hxd039 power off");
+        bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_OFF);
+#endif
+        xTimerStop(xTimer, 0);
+        vTimerSetTimerID(xTimer, 0);
+        hxd_power_off_timer_start = false;
+        return;
+    }
+    ulCount++;
+    vTimerSetTimerID(xTimer, (void*)ulCount);
+}
 
 /**
  * @brief 红外设备初始化
@@ -158,6 +199,16 @@ void ir_dvice_init(void)
     bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_OFF);//关闭HXD039B2的电源
     //初始化判忙IO
     bl_gpio_enable_input(HXD039B2_BUSY_GPIO, true, false);
+    /* 读取flash 内部的空调码组 */
+    if (hxd_039b2_get_ac_codeGrud(ac_codeGrud)==0) {
+        /* 如果读不到，则设置默认值 */
+        if (ac_codeGrud[0]==0&&ac_codeGrud[1]==0) {
+            ac_codeGrud[0] = 0x03;
+            ac_codeGrud[1] = 0xf8;
+        }
+    }
+    /* 创建电源关闭定时器，默认100ms 定时*/
+    hxd_power_off_timer = xTimerCreate("power off", pdMS_TO_TICKS(100), pdTRUE, (void*)0, hxd_power_timers_cb);
 #endif
     /*初始化缓冲器*/
     initBuffer(&hxd_recv_buff);
@@ -174,28 +225,39 @@ static void vTimerCallback(TimerHandle_t xTimer)
     configASSERT(xTimer);
     __hxd039b_busy = bl_gpio_input_get_value(HXD039B2_BUSY_GPIO);
     ulCount = (uint32_t)pvTimerGetTimerID(xTimer);
+    blog_info("__hxd039b_busy=%d ulCont=%d", __hxd039b_busy, ulCount);
     //如果超时或者退出忙碌
-    if (ulCount>=2000||__hxd039b_busy) {
+    if (__hxd039b_busy&&ulCount>=50) {
+        // 学习成功，关闭HXD039B电源
+        blog_info("Learn success,ac code 0x%02X 0x%02X", ac_codeGrud[0], ac_codeGrud[1]);
+        hxd_039b2_save_ac_codeGrud(ac_codeGrud, 2);
+        bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_OFF);
+        __hxd039b_busy = 0;
+        xTimerStop(xTimer, 0);
+        vTimerSetTimerID(xTimer, 0);
+        xTimerDelete(xTimer, 0);
+
+        return;
+    }
+
+    if (ulCount>=2000) {
         //停止定时器
         xTimerStop(xTimer, 0);
-        /* 归零定时器ID*/
-        vTimerSetTimerID(xTimer, 0);
         /* */
         if (ulCount>=2000) {
             blog_error("Learn timerout");
             bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_OFF);
         }
-        if (__hxd039b_busy) {
-            // 学习成功，关闭HXD039B电源
-            blog_info("Learn success,ac code 0x%02X 0x%02X", ac_codeGrud[0], ac_codeGrud[2]);
-            bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_OFF);
-
-        }
         /* 删除定时器 */
+         /* 归零定时器ID*/
+        vTimerSetTimerID(xTimer, 0);
+        __hxd039b_busy = 0;
         xTimerDelete(xTimer, 0);
+
         return;
     }
     ulCount++;
+    vTimerSetTimerID(xTimer, (void*)ulCount);
 }
 #endif
 /**
@@ -208,15 +270,17 @@ void ir_codec_start_learn(void)
     // 开启HXD039B电源
     uint16_t time_out_cont = 0;
     bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_ON);
-    hxd_busy_timer = xTimerCreate("busy timer", pdMS_TO_TICKS(10), pdTRUE, time_out_cont, vTimerCallback);
+    hxd_busy_timer = xTimerCreate("busy timer", pdMS_TO_TICKS(10), pdTRUE, (void*)time_out_cont, vTimerCallback);
 #endif
     /* 延时时间，让HXD039B 进入工作状态*/
     hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS);
     //发送数据
     hxd_039b_find_code_groud();
+    hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS*10);
     //启动定时器判断HXD是否忙碌
-    hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS*20);
+#ifdef MCU_AI_WB2
     xTimerStart(hxd_busy_timer, 0);
+#endif
 }
 /**
  * @brief 发送电源控制指令
@@ -234,11 +298,22 @@ void ir_codec_set_power(int power_state)
     uint8_t ir_code[5] = { IR_CODE_BYTE_HANDLE,IR_CODE_BYTE_AC_TYPE,ac_codeGrud[0],ac_codeGrud[1],power_state?IR_CODE_BYTE_AC_ON:IR_CODE_BYTE_AC_OFF };
     hxd_039b_send_data(ir_code, 5);
     //延时等待发送完成后关闭HXD039B的电源
-    hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS*20);
+    // hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS*20);
 #ifdef MCU_AI_WB2
     // 关闭HXD039B的电源
     blog_info_hexdump("uart_data", ir_code, 5);
-    bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_OFF);
+    /* 判断电源定时器是否正在运行 */
+    if (hxd_power_off_timer_start) {
+        /* 如果正在运行，则重新设置ID数，让定时器重新进行2S的定时*/
+        vTimerSetTimerID(hxd_power_off_timer, 0);
+    }
+    else {
+        /* 如果没在运行，则启动定时器 */
+        hxd_power_off_timer_start = true;
+        xTimerStart(hxd_power_off_timer, 0);
+    }
+
+    // bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_OFF);
 #endif 
 }
 /**
@@ -248,6 +323,7 @@ void ir_codec_set_power(int power_state)
 */
 void ir_codec_set_mode(int mode)
 {
+    uint32_t ulCount = 0;
 #ifdef MCU_AI_WB2
     // 开启HXD039B电源
     bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_ON);
@@ -257,11 +333,20 @@ void ir_codec_set_mode(int mode)
     uint8_t ir_code[5] = { IR_CODE_BYTE_HANDLE,IR_CODE_BYTE_AC_TYPE,ac_codeGrud[0],ac_codeGrud[1], IR_CODE_BYTE_AC_MODE_AUTO+mode };
     hxd_039b_send_data(ir_code, 5);
     //延时等待发送完成后关闭HXD039B的电源
-    hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS*20);
+    // hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS*20);
 #ifdef MCU_AI_WB2
     // 关闭HXD039B的电源
     blog_info_hexdump("uart_data", ir_code, 5);
-    bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_OFF);
+    if (hxd_power_off_timer_start) {
+        /* 如果正在运行，则重新设置ID数，让定时器重新进行2S的定时*/
+        vTimerSetTimerID(hxd_power_off_timer, 0);
+    }
+    else {
+        /* 如果没在运行，则启动定时器 */
+        hxd_power_off_timer_start = true;
+        xTimerStart(hxd_power_off_timer, 0);
+    }
+
 #endif   
 }
 /**
@@ -271,6 +356,7 @@ void ir_codec_set_mode(int mode)
 */
 void ir_codec_set_temperature(unsigned char temperature)
 {
+    uint32_t ulCount = 0;
 #ifdef MCU_AI_WB2
     // 开启HXD039B电源
     bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_ON);
@@ -280,11 +366,20 @@ void ir_codec_set_temperature(unsigned char temperature)
     uint8_t ir_code[5] = { IR_CODE_BYTE_HANDLE,IR_CODE_BYTE_AC_TYPE,ac_codeGrud[0],ac_codeGrud[1], (temperature-16)+IR_CODE_BYTE_AC_TEMPERATURE_16 };
     hxd_039b_send_data(ir_code, 5);
     //延时等待发送完成后关闭HXD039B的电源
-    hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS*20);
+    // hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS*20);
 #ifdef MCU_AI_WB2
     // 关闭HXD039B的电源
     blog_info_hexdump("uart_data", ir_code, 5);
-    bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_OFF);
+    if (hxd_power_off_timer_start) {
+        /* 如果正在运行，则重新设置ID数，让定时器重新进行2S的定时*/
+        vTimerSetTimerID(hxd_power_off_timer, 0);
+    }
+    else {
+        /* 如果没在运行，则启动定时器 */
+        hxd_power_off_timer_start = true;
+        xTimerStart(hxd_power_off_timer, 0);
+    }
+
 #endif   
 }
 /**
@@ -303,11 +398,20 @@ void ir_codec_set_fan_mode(unsigned char fan_mode)
     uint8_t ir_code[5] = { IR_CODE_BYTE_HANDLE,IR_CODE_BYTE_AC_TYPE,ac_codeGrud[0],ac_codeGrud[1], fan_mode+IR_CODE_BYTE_AC_FAN_MODE_AUTO };
     hxd_039b_send_data(ir_code, 5);
     //延时等待发送完成后关闭HXD039B的电源
-    hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS*20);
+    // hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS*20);
 #ifdef MCU_AI_WB2
     // 关闭HXD039B的电源
     blog_info_hexdump("uart_data", ir_code, 5);
-    bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_OFF);
+    if (hxd_power_off_timer_start) {
+        /* 如果正在运行，则重新设置ID数，让定时器重新进行2S的定时*/
+        vTimerSetTimerID(hxd_power_off_timer, 0);
+    }
+    else {
+        /* 如果没在运行，则启动定时器 */
+        hxd_power_off_timer_start = true;
+        xTimerStart(hxd_power_off_timer, 0);
+    }
+
 #endif   
 }
 /**
@@ -326,11 +430,20 @@ void ir_codec_set_trend(unsigned char trend)
     uint8_t ir_code[5] = { IR_CODE_BYTE_HANDLE,IR_CODE_BYTE_AC_TYPE,ac_codeGrud[0],ac_codeGrud[1], trend+IR_CODE_BYTE_AC_TREND_UP };
     hxd_039b_send_data(ir_code, 5);
     //延时等待发送完成后关闭HXD039B的电源
-    hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS*20);
+    // hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS*20);
 #ifdef MCU_AI_WB2
     // 关闭HXD039B的电源
     blog_info_hexdump("uart_data", ir_code, 5);
-    bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_OFF);
+    if (hxd_power_off_timer_start) {
+        /* 如果正在运行，则重新设置ID数，让定时器重新进行2S的定时*/
+        vTimerSetTimerID(hxd_power_off_timer, 0);
+    }
+    else {
+        /* 如果没在运行，则启动定时器 */
+        hxd_power_off_timer_start = true;
+        xTimerStart(hxd_power_off_timer, 0);
+    }
+
 #endif   
 }
 /**
@@ -349,11 +462,20 @@ void ir_codec_set_trend_auto(unsigned char trend_auto)
     uint8_t ir_code[5] = { IR_CODE_BYTE_HANDLE,IR_CODE_BYTE_AC_TYPE,ac_codeGrud[0],ac_codeGrud[1],trend_auto?IR_CODE_BYTE_AC_TREND_AUTO_ON:IR_CODE_BYTE_AC_TREND_AUTO_OFF };
     hxd_039b_send_data(ir_code, 5);
     //延时等待发送完成后关闭HXD039B的电源
-    hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS*20);
+    // hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS*20);
 #ifdef MCU_AI_WB2
     // 关闭HXD039B的电源
     blog_info_hexdump("uart_data", ir_code, 5);
-    bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_OFF);
+    if (hxd_power_off_timer_start) {
+        /* 如果正在运行，则重新设置ID数，让定时器重新进行2S的定时*/
+        vTimerSetTimerID(hxd_power_off_timer, 0);
+    }
+    else {
+        /* 如果没在运行，则启动定时器 */
+        hxd_power_off_timer_start = true;
+        xTimerStart(hxd_power_off_timer, 0);
+    }
+
 #endif   
 }
 /**
@@ -372,11 +494,20 @@ void ir_codec_set_light_power(unsigned char light_power)
     uint8_t ir_code[5] = { IR_CODE_BYTE_HANDLE,IR_CODE_BYTE_AC_TYPE,ac_codeGrud[0],ac_codeGrud[1],light_power?IR_CODE_BYTE_AC_LIGHT_ON:IR_CODE_BYTE_AC_LIGHT_OFF };
     hxd_039b_send_data(ir_code, 5);
     //延时等待发送完成后关闭HXD039B的电源
-    hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS*20);
+    // hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS*20);
 #ifdef MCU_AI_WB2
     // 关闭HXD039B的电源
     blog_info_hexdump("uart_data", ir_code, 5);
-    bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_OFF);
+    if (hxd_power_off_timer_start) {
+        /* 如果正在运行，则重新设置ID数，让定时器重新进行2S的定时*/
+        vTimerSetTimerID(hxd_power_off_timer, 0);
+    }
+    else {
+        /* 如果没在运行，则启动定时器 */
+        hxd_power_off_timer_start = true;
+        xTimerStart(hxd_power_off_timer, 0);
+    }
+
 #endif   
 }
 /**

@@ -17,7 +17,7 @@
 #include "wifi_code.h"
 #include "device_state.h"
 
-static char* flash_key[] = { "ssid","pass","pmk","band","chan_id","mqtt_host","mqtt_port","mqtt_clientID","mqtt_username","mqtt_password","ha_name","ha_manufacturer","ac_type" };
+static char* flash_key[] = { "ssid","pass","pmk","band","chan_id","mqtt_host","mqtt_port","mqtt_clientID","mqtt_username","mqtt_password","ha_name","ha_manufacturer","ac_type","ac_gcode" };
 static char* ac_flash_key[] = { "temp","mode" };
 
 static bool ef_set_bytes(const char* key, char* value, int len) {
@@ -308,4 +308,18 @@ int flash_get_ac_type(void)
 
     vPortFree(modes_str);
     return ac_type;
+}
+
+bool flash_save_new_ac_gcode(unsigned char* g_codec, int g_code_len)
+{
+    return ef_set_bytes(flash_key[FLASH_HA_AC_GCODE], (char*)g_codec, g_code_len);
+}
+
+int flash_get_ac_gcode(unsigned char* g_codec)
+{
+    int ac_type = 0;
+    if (g_codec==NULL) return -1;
+    ef_get_bytes(flash_key[FLASH_HA_AC_GCODE], (char*)g_codec, 2);
+
+    return 2;
 }

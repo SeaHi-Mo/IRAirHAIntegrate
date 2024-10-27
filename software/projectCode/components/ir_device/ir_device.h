@@ -11,6 +11,27 @@
 #ifndef IR_DEVICE_H
 #define IR_DEVICE_H
 
+/**
+ * @brief  HXD 芯片电源启动IO
+ *
+*/
+#define HXD039B2_POWER_CTRL_GPIO 3 //芯片使能IO
+/**
+ * @brief 判忙IO ,低电平时处于学习状态，其他时间为高电平
+ *
+*/
+#define HXD039B2_BUSY_GPIO 1 
+/**
+ * @brief HXD 芯片启动时间
+ *
+*/
+#define HXD_039B2_START_TIME_MS  50
+/**
+ * @brief 长时间无操作电源关闭，时长定义
+ *
+*/
+#define HXD_039B2_POWER_OFF_TIMEOUT_MS 2000
+
 typedef enum {
     IR_CODE_BYTE_HANDLE = 0X30,
     IR_CODE_BYTE_AC_TYPE = 0X06,
@@ -60,4 +81,6 @@ void ir_codec_set_trend(unsigned char trend);
 void ir_codec_set_trend_auto(unsigned char trend_auto);
 void ir_codec_set_light_power(unsigned char light_power);
 void hxd_039b_uart_recv_cb(unsigned char uart_data);
+void hxd_039b2_save_ac_codeGrud(unsigned char* ac_codeGrud, int size_len);
+int hxd_039b2_get_ac_codeGrud(unsigned char* ac_codeGrud);
 #endif

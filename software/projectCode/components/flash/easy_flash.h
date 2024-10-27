@@ -25,6 +25,7 @@ typedef enum {
     FLASH_HA_DEV_NAME,
     FLASH_HA_MANUFACTURER,
     FLASH_HA_AC_TYPE,
+    FLASH_HA_AC_GCODE,
 }flash_key_t;
 
 bool flash_save_wifi_info(void* value);
@@ -43,4 +44,7 @@ int flash_get_ac_mode(void);
 
 bool flash_save_new_ac_type(int ac_type);
 int flash_get_ac_type(void);
+
+bool flash_save_new_ac_gcode(unsigned char* g_codec, int g_code_len);
+int flash_get_ac_gcode(unsigned char* g_codec);
 #endif
