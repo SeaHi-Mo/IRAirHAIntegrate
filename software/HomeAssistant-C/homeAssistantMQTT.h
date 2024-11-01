@@ -46,6 +46,11 @@ typedef enum {
 #if CONFIG_ENTITY_ENABLE_SELECT
     HA_EVENT_MQTT_COMMAND_SELECT_VALUE,
 #endif
+
+#if CONFIG_ENTITY_ENABLE_BUTTON
+    HA_EVENT_MQTT_COMMAND_BUTTON,
+#endif
+
     HA_EVENT_MQTT_ERROR,
 }ha_event_t;
 
@@ -642,6 +647,43 @@ typedef struct {
     ha_select_t* command_select;
 }ha_select_list_t;
 #endif
+#if CONFIG_ENTITY_ENABLE_BUTTON
+
+typedef struct homeAssisatnt_entity_button {
+    char* name;                   //实体名称 必须要赋值
+    char* entity_config_topic;    //实体自动发现需要的topic，已经自动赋值，可以不配置
+    char* object_id;              //实体 工程id 可以为NULL
+    char* availability_mode;      //实体上下线的模式 可以为NULL
+    char* availability_template;  //实体上下线的数据格式，建议为NULL，采用默认
+    char* availability_topic;     //实体上下线上报的Topic,建议保持默认
+    char* command_topic;          //命令接收的Topic,需要订阅
+    char* command_template;           //数据格式 
+    char* device_class;           //设备类型，可以留空
+    bool enabled_by_default;         //默认LED的状态
+    char* encoding;               //编码方式
+    char* entity_category;        //实体属性，保持NULL
+    char* icon;                    //图标
+    char* json_attributes_template;//json 数据模板'
+    char* json_attributes_topic;
+    char* optimistic;              //记忆模式
+    char* payload_available;       //在线消息内容 默认"online"
+    char* payload_not_available;   //离线消息内容 默认"offline"
+    char* payload_press;           //点击事件
+    int qos;                      //消息服务质量
+    bool retain;                       //是否保留该信息     
+    char* unique_id;                // 唯一的识别码，这个必须配置 
+    char* config_data;      //开关的自动发现的json数据
+    struct homeAssisatnt_entity_button* prev;
+    struct homeAssisatnt_entity_button* next;
+}ha_btn_entity_t;
+
+typedef struct {
+    char* entity_type;
+    ha_btn_entity_t* button_list;
+    ha_btn_entity_t* command_button;
+}ha_btn_list_t;
+
+#endif
 /**
  * @brief  设备信息
  *
@@ -685,6 +727,11 @@ typedef struct homeAssisatnt_device {
 #if CONFIG_ENTITY_ENABLE_SELECT
     ha_select_list_t* entity_select;
 #endif
+
+#if CONFIG_ENTITY_ENABLE_BUTTON
+    ha_btn_list_t* entity_button;
+#endif
+
     ha_mqtt_info_t mqtt_info;
     bool homeassistant_online;
     void (*event_cb)(ha_event_t event, struct homeAssisatnt_device* ha_dev);

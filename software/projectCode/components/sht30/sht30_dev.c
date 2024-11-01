@@ -41,7 +41,7 @@ static  struct sht3x_data data;
 static hosal_i2c_dev_t sht_i2c0 = {
         .config = {
             .address_width = HOSAL_I2C_ADDRESS_WIDTH_7BIT,
-            .freq = 400000,
+            .freq = 300000,
             .mode = HOSAL_I2C_MODE_MASTER,
             .scl = SHT30_I2C_SCL,
             .sda = SHT30_I2C_SDA,
@@ -133,7 +133,10 @@ void sht30_device_init(sht03_sample_t sample_config, sht30_get_data_cb_t sht30_g
             break;
     }
     sht30_timer = xTimerCreate("sht30 getdata", pdMS_TO_TICKS(_timers), sht3x_is_single_sample?pdFALSE:pdTRUE, 0, vTimerCallback_sht30);
-    uint8_t command[2] = { sample_config >>8, sample_config&0xff };
+    uint8_t command[2] = { 0 };
+    command[0] = (sample_config >>8)&0xff;
+    command[1] = sample_config&0xff;
+
     hosal_i2c_master_send(&sht_i2c0, SHT30_I2C_ADDR, command, sizeof command, 100);
     vTaskDelay(pdMS_TO_TICKS(50));
     xTimerStart(sht30_timer, pdMS_TO_TICKS(100));
@@ -144,7 +147,10 @@ sht3x_data_t* sht30_get_data(void)
 {
     if (sht3x_is_single_sample)
     {
-        uint8_t command[2] = { sht30_sample >> 8,  sht30_sample & 0xff };
+        uint8_t command[2] = { 0 };
+        command[0] = (sht30_sample >>8)&0xff;
+        command[1] = sht30_sample&0xff;
+
         blog_debug("i2c cmd=0x%02x%02x", command[0], command[1]);
         hosal_i2c_master_send(&sht_i2c0, SHT30_I2C_ADDR, command, sizeof command, 100);
         memset(&data, 0, sizeof data);

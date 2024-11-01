@@ -71,7 +71,7 @@
 #define CONFIG_ENTITY_ENABLE_BINARY_SENSOR 0  
 
 //按钮实体     默认不开启，需要使用就置 1         
-#define CONFIG_ENTITY_ENABLE_BUTTON 0   
+#define CONFIG_ENTITY_ENABLE_BUTTON 1  
 
 //摄像头实体   默认不开启，需要使用就置 1               
 #define CONFIG_ENTITY_ENABLE_CAMERA 0  
@@ -116,7 +116,7 @@
 #define CONFIG_ENTITY_ENABLE_SCENE 0  
 
  //选择器实体  默认不开启，需要使用就置 1                 
-#define CONFIG_ENTITY_ENABLE_SELECT 1      
+#define CONFIG_ENTITY_ENABLE_SELECT 0    
 
 //传感器实体   默认不开启，需要使用就置 1
 
@@ -126,7 +126,7 @@
 #define CONFIG_ENTITY_ENABLE_SIREN 0     
 
 //开关实体   默认开启        
-#define CONFIG_ENTITY_ENABLE_SWITCH 0
+#define CONFIG_ENTITY_ENABLE_SWITCH 1
 
 //更新实体   默认不开启，需要使用就置 1                   
 #define CONFIG_ENTITY_ENABLE_UPDATE  0     

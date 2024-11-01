@@ -146,17 +146,10 @@ static void device_state_task(void* arg)
 
             }
             break;
-            case DEVICE_STATE_HOMEASSISTANT_AC_TYPE_CHANGE:
+            case DEVICE_STATE_HOMEASSISTANT_AC_LERAN_START:
             {
-                blog_info("<<<<<<<<<<<<<<<  DEVICE_STATE_HOMEASSISTANT_AC_TYPE_CHANGE %d", dev_msg->ac_type);
-                flash_save_new_ac_type(dev_msg->ac_type);
-
-                for (size_t i = 0; i < 3; i++)
-                {
-                    vTaskDelay(pdMS_TO_TICKS(1000));
-                    blog_warn("The system will restart in 2 seconds:%d s", i+1);
-                }
-                bl_sys_reset_system();
+                blog_info("<<<<<<<<<<<<<<<  DEVICE_STATE_HOMEASSISTANT_AC_LERAN_START ");
+                ir_codec_start_learn();
             }
             break;
             default:
@@ -194,7 +187,7 @@ void device_state_init(void* arg)
     // blufi_wifi_init();
     device_led_init();
     device_button_init();
-    // sht30_device_init(SHT30_PERIODIC_SAMPLE_1_HIGH, sht30_get_data_callback);
+    sht30_device_init(SHT30_PERIODIC_SAMPLE_1_HIGH, sht30_get_data_callback);
 
     if (err == pdPASS) {
         blog_info("\"device_state_task\" is create OK");

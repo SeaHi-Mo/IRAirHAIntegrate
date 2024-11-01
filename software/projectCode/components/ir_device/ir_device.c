@@ -41,7 +41,7 @@ typedef struct {
 } CircularBuffer;
 static CircularBuffer hxd_recv_buff;
 
-static int __hxd039b_busy = 1;
+
 unsigned char ac_codeGrud[2] = { 0x03,0xF8 };//默认空调码组
 static unsigned char hxd039b2_code_lren[] = { 0x30,0x70,0xa0 };//固定学习码
 
@@ -113,6 +113,7 @@ static void hxd_039b_send_data(unsigned char* data, int data_len)
         printf("data is NULL \r\n");
         return;
     }
+    int __hxd039b_busy = 0;
     //如果芯片处于忙碌状态，则直接退出，不做任何操作
     __hxd039b_busy = bl_gpio_input_get_value(HXD039B2_BUSY_GPIO);
     if (!__hxd039b_busy) {
@@ -221,43 +222,35 @@ void ir_dvice_init(void)
 */
 static void vTimerCallback(TimerHandle_t xTimer)
 {
-    uint32_t ulCount;
+    // uint32_t ulCount;
     configASSERT(xTimer);
+    int __hxd039b_busy = 0;
     __hxd039b_busy = bl_gpio_input_get_value(HXD039B2_BUSY_GPIO);
-    ulCount = (uint32_t)pvTimerGetTimerID(xTimer);
-    blog_info("__hxd039b_busy=%d ulCont=%d", __hxd039b_busy, ulCount);
+    // ulCount = (uint32_t)pvTimerGetTimerID(xTimer);
+    // blog_info("__hxd039b_busy=%d ulCont=%d", __hxd039b_busy, ulCount);
     //如果超时或者退出忙碌
-    if (__hxd039b_busy&&ulCount>=50) {
+    if (__hxd039b_busy) {
         // 学习成功，关闭HXD039B电源
         blog_info("Learn success,ac code 0x%02X 0x%02X", ac_codeGrud[0], ac_codeGrud[1]);
+        if (ac_codeGrud[0]==0xff&&ac_codeGrud[1]==0xff) {
+            //如果返回的是0xffff 则重新进入学习状态
+            hxd_039b_find_code_groud();
+            __hxd039b_busy = 0;
+            return;
+        }
+        if (ac_codeGrud[0]==0x88&&ac_codeGrud[1]==0x99) {
+            blog_error("Learn timerout");
+            goto __exit;
+        }
         hxd_039b2_save_ac_codeGrud(ac_codeGrud, 2);
+        ac_codeGrud[0] = ac_codeGrud[1] = 0xff;
+    __exit:
         bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_OFF);
         __hxd039b_busy = 0;
         xTimerStop(xTimer, 0);
-        vTimerSetTimerID(xTimer, 0);
         xTimerDelete(xTimer, 0);
-
         return;
     }
-
-    if (ulCount>=2000) {
-        //停止定时器
-        xTimerStop(xTimer, 0);
-        /* */
-        if (ulCount>=2000) {
-            blog_error("Learn timerout");
-            bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_OFF);
-        }
-        /* 删除定时器 */
-         /* 归零定时器ID*/
-        vTimerSetTimerID(xTimer, 0);
-        __hxd039b_busy = 0;
-        xTimerDelete(xTimer, 0);
-
-        return;
-    }
-    ulCount++;
-    vTimerSetTimerID(xTimer, (void*)ulCount);
 }
 #endif
 /**
@@ -270,12 +263,13 @@ void ir_codec_start_learn(void)
     // 开启HXD039B电源
     uint16_t time_out_cont = 0;
     bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_ON);
-    hxd_busy_timer = xTimerCreate("busy timer", pdMS_TO_TICKS(10), pdTRUE, (void*)time_out_cont, vTimerCallback);
+    hxd_busy_timer = xTimerCreate("busy timer", pdMS_TO_TICKS(200), pdTRUE, (void*)time_out_cont, vTimerCallback);
 #endif
     /* 延时时间，让HXD039B 进入工作状态*/
     hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS);
     //发送数据
     hxd_039b_find_code_groud();
+
     hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS*10);
     //启动定时器判断HXD是否忙碌
 #ifdef MCU_AI_WB2
@@ -292,6 +286,7 @@ void ir_codec_set_power(int power_state)
 #ifdef MCU_AI_WB2
     // 开启HXD039B电源
     bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_ON);
+    flash_get_ac_gcode(ac_codeGrud);
 #endif 
     hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS);
     //组织数据 例如打开空调： 0x30  0x06	0x03	0x03e	 81  
@@ -327,9 +322,11 @@ void ir_codec_set_mode(int mode)
 #ifdef MCU_AI_WB2
     // 开启HXD039B电源
     bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_ON);
+    flash_get_ac_gcode(ac_codeGrud);
 #endif 
     hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS);
     //组织数据 例如打开空调： 0x30  0x06	0x03	0x03e	 81  
+
     uint8_t ir_code[5] = { IR_CODE_BYTE_HANDLE,IR_CODE_BYTE_AC_TYPE,ac_codeGrud[0],ac_codeGrud[1], IR_CODE_BYTE_AC_MODE_AUTO+mode };
     hxd_039b_send_data(ir_code, 5);
     //延时等待发送完成后关闭HXD039B的电源
@@ -360,6 +357,7 @@ void ir_codec_set_temperature(unsigned char temperature)
 #ifdef MCU_AI_WB2
     // 开启HXD039B电源
     bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_ON);
+    flash_get_ac_gcode(ac_codeGrud);
 #endif 
     hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS);
     //组织数据 例如打开空调： 0x30  0x06	0x03	0x03e	 81  
@@ -392,6 +390,7 @@ void ir_codec_set_fan_mode(unsigned char fan_mode)
 #ifdef MCU_AI_WB2
     // 开启HXD039B电源
     bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_ON);
+    flash_get_ac_gcode(ac_codeGrud);
 #endif 
     hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS);
     //组织数据 例如打开空调： 0x30  0x06	0x03	0x03e	 81  
@@ -424,6 +423,7 @@ void ir_codec_set_trend(unsigned char trend)
 #ifdef MCU_AI_WB2
     // 开启HXD039B电源
     bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_ON);
+    flash_get_ac_gcode(ac_codeGrud);
 #endif 
     hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS);
     //组织数据 例如打开空调： 0x30  0x06	0x03	0x03e	 81  
@@ -456,6 +456,7 @@ void ir_codec_set_trend_auto(unsigned char trend_auto)
 #ifdef MCU_AI_WB2
     // 开启HXD039B电源
     bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_ON);
+    flash_get_ac_gcode(ac_codeGrud);
 #endif 
     hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS);
     //组织数据 例如打开空调： 0x30  0x06	0x03	0x03e	 81  
@@ -488,6 +489,7 @@ void ir_codec_set_light_power(unsigned char light_power)
 #ifdef MCU_AI_WB2
     // 开启HXD039B电源
     bl_gpio_output_set(HXD039B2_POWER_CTRL_GPIO, POWER_ON);
+    flash_get_ac_gcode(ac_codeGrud);
 #endif 
     hxd_039b2_delay_ms(HXD_039B2_START_TIME_MS);
     //组织数据 例如打开空调： 0x30  0x06	0x03	0x03e	 81  

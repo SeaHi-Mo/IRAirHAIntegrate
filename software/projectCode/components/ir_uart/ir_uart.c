@@ -54,8 +54,6 @@ void ir_uart_dvice_init(ir_recv_cb_t _ir_recv_cb)
     bl_uart_int_tx_notify_register(IR_UART_NUM, __uart_tx_irq, NULL);
     bl_uart_int_rx_notify_register(IR_UART_NUM, hosal_uart_callback, NULL);
     bl_uart_int_enable(IR_UART_NUM);
-    bl_uart_int_tx_enable(IR_UART_NUM);
-    // flash_set_ir_code("ir_on", midea[0].cmd_data, midea[0].cmd_date_len);
     blog_info("ir device statrt......");
     ir_recv_cb = _ir_recv_cb;
 }

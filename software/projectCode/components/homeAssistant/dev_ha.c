@@ -27,37 +27,11 @@ void ha_event_cb(ha_event_t event, homeAssisatnt_device_t* dev)
             // HA_LOG_I("<<<<<<<<<<  HA_EVENT_MQTT_CONNECED AC TYPE=%d\r\n", ac_type);
             static ha_climateHVAC_t AC1 = {
                 .unique_id = "AC_1",
-                .name="红外遥控器",
-                
+                .name = "空调遥控器",
+                .min_temp = 16.0,
+                .max_temp = 31.0,
             };
-            // switch (ac_type)
-            // {
-            //     case IR_DEVICE_TYPE_AC_BRAND_MIDEA:
-            //         AC1.name = "美的空调";
-            //         AC1.max_temp = 30.0;
-            //         AC1.min_temp = 17.0;
-            //         break;
-            //     case IR_DEVICE_TYPE_AC_BRAND_TCL:
-            //         AC1.name = "TCL空调";
-            //         AC1.max_temp = 30.0;
-            //         AC1.min_temp = 16.0;
-            //         break;
-            //     default:
-            //         break;
-            // }
             homeAssistant_device_add_entity(CONFIG_HA_ENTITY_CLIMATE_HVAC, &AC1);
-
-            static char* options[] = { "空调","风扇","电视" };
-            static ha_select_t select = {
-                .name = "选择设备类型",
-                .unique_id = "select1",
-                .options = options,
-                .options_numble = 3,
-                .optimistic = true,
-                .enabled_by_default = true,
-
-            };
-            select.option = 0;
 
             static ha_sensor_entity_t th30_t = {
                 .name = "温度",
@@ -71,15 +45,20 @@ void ha_event_cb(ha_event_t event, homeAssisatnt_device_t* dev)
                 .unique_id = "th30_h",
                 .device_class = Class_humidity,
                 .unit_of_measurement = "%",
-
             };
-            homeAssistant_device_add_entity(CONFIG_HA_ENTITY_SELECT, &select);
+
+            static ha_btn_entity_t leran_btn = {
+                .name = "匹配空调",
+                .unique_id = "btn_learn",
+            };
+            // homeAssistant_device_add_entity(CONFIG_HA_ENTITY_SELECT, &select);
             homeAssistant_device_add_entity(CONFIG_HA_ENTITY_SENSOR, &th30_t);
             homeAssistant_device_add_entity(CONFIG_HA_ENTITY_SENSOR, &th30_h);
+            homeAssistant_device_add_entity(CONFIG_HA_ENTITY_BUTTON, &leran_btn);
+
             homeAssistant_device_send_status(HOMEASSISTANT_STATUS_ONLINE);
             dev_msg.device_state = DEVICE_STATE_HOMEASSISTANT_CONNECT;
-            // homeAssistant_device_send_entity_state(CONFIG_HA_ENTITY_CLIMATE_HVAC, &AC1, 0);
-            dev_msg.ac_type = select.option;
+            homeAssistant_device_send_entity_state(CONFIG_HA_ENTITY_CLIMATE_HVAC, &AC1, 0);
             device_state_update(false, &dev_msg);
 
         }
@@ -114,12 +93,10 @@ void ha_event_cb(ha_event_t event, homeAssisatnt_device_t* dev)
 
             device_state_update(false, &dev_msg);
             break;
-        case HA_EVENT_MQTT_COMMAND_SELECT_VALUE:
-            HA_LOG_I("<<<<<<<<<< HA_EVENT_MQTT_COMMAND_SELECT_VALUE=%s\r\n", dev->entity_select->command_select->options[dev->entity_select->command_select->option]);
-            homeAssistant_device_send_entity_state(CONFIG_HA_ENTITY_SELECT, dev->entity_select->command_select, 1);
-            dev_msg.device_state = DEVICE_STATE_HOMEASSISTANT_AC_TYPE_CHANGE;
-            dev_msg.ac_type = dev->entity_select->command_select->option;
-            dev_msg.ha_dev = dev;
+        case HA_EVENT_MQTT_COMMAND_BUTTON:
+            HA_LOG_I("<<<<<<<<<< HA_EVENT_MQTT_COMMAND_BUTTON \r\n");
+            //启动学习之后，开始
+            dev_msg.device_state = DEVICE_STATE_HOMEASSISTANT_AC_LERAN_START;
             device_state_update(false, &dev_msg);
             break;
         default:
