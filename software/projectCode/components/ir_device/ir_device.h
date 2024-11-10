@@ -25,7 +25,7 @@
  * @brief HXD 芯片启动时间
  *
 */
-#define HXD_039B2_START_TIME_MS  50
+#define HXD_039B2_START_TIME_MS  70
 /**
  * @brief 长时间无操作电源关闭，时长定义
  *
